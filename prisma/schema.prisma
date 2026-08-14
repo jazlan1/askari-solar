@@ -1,0 +1,300 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "rhel-openssl-3.0.x"]
+}
+
+model User {
+  id                 Int                @id @default(autoincrement())
+  name               String
+  email              String             @unique
+  password           String
+  role               String // 'Super Admin', 'Management', 'Sales & Marketing', 'Accounts', 'HR', 'CRM Staff', 'Employee'
+  department         String // 'Sales', 'Accounts', 'HR', 'CRM', 'Management', 'None'
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  attendance         Attendance[]
+  announcements      Announcement[]
+  files              FileItem[]
+  leads              Lead[]
+  auditLogs          AuditLog[]
+  assignedTasks      Task[]             @relation("AssignedTasks")
+  receivedTasks      Task[]             @relation("ReceivedTasks")
+  assignedComplaints Complaint[]        @relation("AssignedComplaints")
+  complaintNotes     ComplaintNote[]    @relation("ComplaintNotes")
+  complaintHistories ComplaintHistory[] @relation("ComplaintHistories")
+  documents          String?
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  date      String // "YYYY-MM-DD"
+  checkIn   String? // "HH:MM:SS"
+  checkOut  String? // "HH:MM:SS"
+  status    String // 'Present', 'Absent', 'Leave', 'Half Day', 'Late'
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lead {
+  id              Int         @id @default(autoincrement())
+  name            String
+  phone           String
+  cnic            String?
+  address         String?
+  city            String
+  electricityBill Float?
+  monthlyUnits    Int?
+  load            Float?
+  source          String? // 'Campaign', 'Social', 'Direct', etc.
+  campaign        String?
+  salesPersonId   Int?
+  salesPerson     User?       @relation(fields: [salesPersonId], references: [id])
+  status          String // 'New', 'Contacted', 'Survey Scheduled', 'Quotation Sent', 'Negotiation', 'Won', 'Lost'
+  completionProof String? // Proof document/image uploaded on Won
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  quotations      Quotation[]
+}
+
+model Customer {
+  id        Int             @id @default(autoincrement())
+  name      String
+  phone     String
+  cnic      String?
+  address   String?
+  city      String
+  email     String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  projects  Project[]
+  tickets   SupportTicket[]
+}
+
+model Project {
+  id                Int      @id @default(autoincrement())
+  customerId        Int
+  customer          Customer @relation(fields: [customerId], references: [id])
+  name              String
+  stage             String // 'Survey', 'Approval', 'Material Ordered', 'Installation', 'Inspection', 'Net Metering', 'Completed', 'Warranty'
+  surveyDetails     String?
+  approvalStatus    String?
+  materialOrdered   String?
+  installationDate  String?
+  inspectionDate    String?
+  netMeteringStatus String?
+  warrantyYears     Int?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Quotation {
+  id           Int      @id @default(autoincrement())
+  leadId       Int?
+  lead         Lead?    @relation(fields: [leadId], references: [id])
+  title        String
+  clientName   String
+  clientNumber String
+  location     String // e.g. Islamabad, Chakwal
+  amount       Float
+  details      String // JSON string of selected solar panels, inverters, batteries, structures etc.
+  filePath     String? // public file path of generated PDF
+  status       String // 'Pending', 'Approved', 'Rejected'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  category       String // 'Solar Panels', 'Inverters', 'Batteries', 'Accessories', 'Structures', 'Cables', 'Installation Materials'
+  name           String
+  brand          String
+  spec           String?
+  rate           Float // Retail price
+  purchasePrice  Float? // Purchase price
+  wholesalePrice Float? // Wholesale price
+  stock          Int
+  warranty       String?
+  description    String?
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SupportTicket {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  customer    Customer @relation(fields: [customerId], references: [id])
+  subject     String
+  description String
+  type        String // 'Warranty Claim', 'Complaint', 'Maintenance', 'Service Visit'
+  status      String // 'Open', 'In Progress', 'Resolved', 'Closed'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FileItem {
+  id            Int        @id @default(autoincrement())
+  name          String
+  isFolder      Boolean
+  folderColor   String? // color hex or text (e.g., 'blue', 'orange', 'purple')
+  path          String // directory path, e.g., '/Training/Sales' or '/'
+  parentId      Int?
+  parent        FileItem?  @relation("FileHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      FileItem[] @relation("FileHierarchy")
+  department    String // 'Sales', 'Accounts', 'HR', 'CRM', 'Management', 'Shared'
+  docType       String // 'Training', 'Quotations', 'Advertisements', 'Documents', 'Other'
+  fileExtension String?
+  fileSize      Int?
+  fileUrl       String?
+  uploadedById  Int?
+  uploadedBy    User?      @relation(fields: [uploadedById], references: [id])
+  isFavorite    Boolean    @default(false)
+  tags          String? // Comma separated tags
+  version       Int        @default(1)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Announcement {
+  id            Int      @id @default(autoincrement())
+  title         String
+  content       String
+  department    String // 'All', 'Sales', 'Accounts', 'HR', 'CRM'
+  attachmentUrl String?
+  isPinned      Boolean  @default(false)
+  createdById   Int
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WorkSchedule {
+  id              Int      @id @default(autoincrement())
+  date            String // "YYYY-MM-DD"
+  day             String
+  branch          String
+  clientName      String
+  clientNumber    String
+  clientLocation  String
+  natureOfWork    String
+  workDescription String?
+  charges         Float
+  assignedStaff   String
+  startDate       String
+  endDate         String
+  status          String // 'Pending', 'In Progress', 'Completed', 'Cancelled'
+  remarks         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String
+  priority        String // 'Low', 'Medium', 'High'
+  dueDate         String // "YYYY-MM-DD"
+  assignedById    Int
+  assignedBy      User      @relation("AssignedTasks", fields: [assignedById], references: [id])
+  assignedTo      User[]    @relation("ReceivedTasks")
+  charges         String?
+  clientName      String?
+  clientNumber    String?
+  clientLocation  String?
+  attachmentUrl   String? // Optional attachment from manager
+  status          String // 'Pending', 'Completed'
+  completionPhoto String? // Optional uploaded proof
+  completionNotes String? // Completion comments from worker
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Complaint {
+  id              Int                @id @default(autoincrement())
+  complaintId     String             @unique // "ASK-2026-00001"
+  fullName        String
+  phone           String
+  email           String?
+  address         String?
+  projectId       String?
+  installedBy     String?
+  category        String // 'Inverter Issue', 'Solar Panels Not Producing', etc.
+  subject         String
+  description     String
+  contactMethod   String // 'Phone', 'Email', 'WhatsApp'
+  contactTime     String?
+  screenshotUrl   String?
+  attachmentUrl   String?
+  resolutionProof String? // Proof document/image uploaded on Resolution
+  status          String             @default("New") // 'New', 'Pending Review', 'Assigned', 'In Progress', 'Waiting for Customer', 'Resolved', 'Closed'
+  priority        String             @default("Medium") // 'Low', 'Medium', 'High', 'Urgent'
+  assignedToId    Int?
+  assignedTo      User?              @relation("AssignedComplaints", fields: [assignedToId], references: [id])
+  notes           ComplaintNote[]
+  history         ComplaintHistory[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model ComplaintNote {
+  id          Int       @id @default(autoincrement())
+  complaintId Int
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  authorId    Int
+  author      User      @relation("ComplaintNotes", fields: [authorId], references: [id])
+  content     String
+  createdAt   DateTime  @default(now())
+}
+
+model ComplaintHistory {
+  id          Int       @id @default(autoincrement())
+  complaintId Int
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  changedById Int?
+  changedBy   User?     @relation("ComplaintHistories", fields: [changedById], references: [id])
+  field       String // 'status', 'priority', 'assignedTo'
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime  @default(now())
+}
+
+model Feedback {
+  id                  Int      @id @default(autoincrement())
+  customerName        String
+  contactNumber       String
+  locationCity        String
+  installationDate    String
+  serviceType         String
+  technicalBehaviour  Int      // rating 1-5
+  technicalSkills     Int      // rating 1-5
+  timelines           Int      // rating 1-5
+  cleanliness         Int      // rating 1-5
+  problemSolved       String   // 'Yes' / 'No'
+  overallRating       Int      // rating 1-5
+  commentsSuggestions String?  // long answer
+  photoUrl            String?  // customer photo upload path
+  warrantyReceived    String   // 'Yes' / 'No' / 'Not Applicable'
+  warrantyCardUrl     String?  // warranty card upload path
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+

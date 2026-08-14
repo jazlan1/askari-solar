@@ -39,3 +39,43 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# local databases and logs
+/prisma/dev.db
+/prisma/dev.db-journal
+*.log
+
+# build outputs and deploy directories
+/deploy-standalone/
+/_deploy_min/
+/_deploy_staging/
+/deploy-source/
+node_modules/
+
+# archives
+*.zip
+*.tgz
+*.tar.gz
+*.gz
+_data/
+
+# editor and agent configs
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
+__pycache__/
+*.pyc
+
+# user uploads
+/public/uploads/
+/public/New files/
+
+# temp scripts
+/scratch_temp.js
+/test-tasks.js
+/test-tasks.ts
+/check-db.js
+
