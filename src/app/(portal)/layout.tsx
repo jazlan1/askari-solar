@@ -242,17 +242,17 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
       if (!user) return false;
       const userRoles = (user.role || "").split(",").map(r => r.trim().toLowerCase());
       
-      // Admins have access to everything visible
-      if (userRoles.some(r => ["admin", "super admin", "management"].includes(r))) {
-        return true;
-      }
-
       return link.roles.some((role) => {
         const r = role.toLowerCase();
-        return userRoles.some(uRole => {
+        return userRoles.some((uRole) => {
           if (r === uRole) return true;
-          if (r === "accounts" && uRole === "accountant") return true;
-          if (r === "sales & marketing" && uRole === "sales & marketing department") return true;
+          if (["admin", "super admin", "superadmin", "management"].includes(uRole)) return true;
+          if ((r === "accounts" || r === "accountant") && ["accountant", "accounts", "accounting", "finance"].includes(uRole)) return true;
+          if (
+            (r === "sales" || r === "sales & marketing" || r === "sales & marketing department") &&
+            ["sales", "marketing", "sales & marketing", "sales & marketing department"].includes(uRole)
+          ) return true;
+          if (r === "hr" && ["hr", "human resources"].includes(uRole)) return true;
           return false;
         });
       });

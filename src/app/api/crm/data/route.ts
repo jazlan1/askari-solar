@@ -14,9 +14,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    const userRoles = (payload.role || "").split(",").map(r => r.trim());
-    const isManager = userRoles.some(r => ["Admin", "Super Admin", "Management"].includes(r));
-    const isSales = userRoles.includes("Sales & Marketing Department");
+    const userRoles = (payload.role || "")
+      .split(",")
+      .map((r) => r.trim().toLowerCase())
+      .filter(Boolean);
+    const isManager = userRoles.some((r) =>
+      ["admin", "super admin", "superadmin", "management"].includes(r)
+    );
+    const isSales = userRoles.some((r) =>
+      ["sales & marketing department", "sales & marketing", "sales", "marketing"].includes(r)
+    );
 
     if (!isManager && !isSales) {
       return NextResponse.json({ error: "Access denied: unauthorized role." }, { status: 403 });
@@ -77,8 +84,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    const userRoles = (payload.role || "").split(",").map(r => r.trim());
-    const isAllowed = userRoles.some(r => ["Admin", "Super Admin", "Management", "Sales & Marketing Department"].includes(r));
+    const userRoles = (payload.role || "")
+      .split(",")
+      .map((r) => r.trim().toLowerCase())
+      .filter(Boolean);
+    const isAllowed = userRoles.some((r) =>
+      ["admin", "super admin", "superadmin", "management", "sales & marketing department", "sales & marketing", "sales", "marketing"].includes(r)
+    );
     if (!isAllowed) {
       return NextResponse.json({ error: "Access denied: unauthorized role." }, { status: 403 });
     }

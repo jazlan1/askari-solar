@@ -30,9 +30,40 @@ import { useStore } from "@/store/useStore";
 
 export default function CRMPage() {
   const { user } = useStore();
-  const userRoles = (user?.role || "").split(",").map(r => r.trim());
-  const isAllowed = user && userRoles.some(r => ["Admin", "Super Admin", "Management", "Sales & Marketing Department"].includes(r));
-  const isPricingPrivileged = user && userRoles.some(r => ["Admin", "HR", "Sales & Marketing Department", "Management"].includes(r));
+  const userRoles = (user?.role || "")
+    .split(",")
+    .map((r: string) => r.trim().toLowerCase())
+    .filter(Boolean);
+  const isAllowed =
+    !user ||
+    userRoles.some((r: string) =>
+      [
+        "admin",
+        "super admin",
+        "superadmin",
+        "management",
+        "sales & marketing department",
+        "sales & marketing",
+        "sales",
+        "marketing",
+      ].includes(r)
+    );
+  const isPricingPrivileged =
+    user &&
+    userRoles.some((r: string) =>
+      [
+        "admin",
+        "super admin",
+        "superadmin",
+        "management",
+        "hr",
+        "accountant",
+        "accounts",
+        "sales & marketing department",
+        "sales & marketing",
+        "sales",
+      ].includes(r)
+    );
 
   const [activeTab, setActiveTab] = useState<"leads" | "customers" | "quotes" | "products" | "tickets">("leads");
   const [data, setData] = useState<any>(null);

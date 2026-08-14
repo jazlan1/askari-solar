@@ -22,8 +22,13 @@ import { formatPKTDateDisplay } from "@/lib/dateUtils";
 
 export default function UsersAdminPage() {
   const { user: currentAdmin } = useStore();
-  const adminRoles = (currentAdmin?.role || "").split(",").map((r: string) => r.trim());
-  const canManageStaff = adminRoles.some((r: string) => ["Admin", "Super Admin"].includes(r));
+  const adminRoles = (currentAdmin?.role || "")
+    .split(",")
+    .map((r: string) => r.trim().toLowerCase())
+    .filter(Boolean);
+  const canManageStaff = adminRoles.some((r: string) =>
+    ["admin", "super admin", "superadmin", "management", "hr"].includes(r)
+  );
   const [usersList, setUsersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

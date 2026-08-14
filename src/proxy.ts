@@ -77,50 +77,64 @@ export async function proxy(req: NextRequest) {
     }
 
     const { role } = payload;
-    const userRole = (role || "").toLowerCase();
-    const isAdmin = ["admin", "super admin", "management"].includes(userRole);
+    const userRoles = (role || "")
+      .split(",")
+      .map((r: string) => r.trim().toLowerCase())
+      .filter(Boolean);
 
-    // Field Staff is restricted to Dashboard, Tasks, Profile, Settings, and Complaints
-    if (userRole === "field staff") {
-      const allowedPaths = ["/dashboard", "/tasks", "/profile", "/settings", "/complaints"];
-      const isAllowed = allowedPaths.some((p) => pathname.startsWith(p)) || pathname === "/";
-      if (!isAllowed) {
+    const isAdmin = userRoles.some((r) =>
+      ["admin", "super admin", "superadmin", "management"].includes(r)
+    );
+    const isHR = userRoles.some((r) =>
+      ["hr", "human resources"].includes(r)
+    );
+    const isAccounts = userRoles.some((r) =>
+      ["accountant", "accounts", "accounting", "finance"].includes(r)
+    );
+    const isSales = userRoles.some((r) =>
+      ["sales & marketing department", "sales & marketing", "sales", "marketing"].includes(r)
+    );
+
+    // Admins have unrestricted access to all modules
+    if (!isAdmin) {
+      if (pathname.startsWith("/users")) {
+        if (!isHR) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
+      }
+
+      if (pathname.startsWith("/performance")) {
         return NextResponse.redirect(getRedirectUrl("/dashboard", req));
       }
-    }
 
-    // Check module-specific role access
-    if (pathname.startsWith("/users")) {
-      if (!isAdmin) {
-        return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+      if (pathname.startsWith("/sales")) {
+        if (!isSales) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
       }
-    }
 
-    if (pathname.startsWith("/sales")) {
-      const allowed = isAdmin || ["sales & marketing department", "sales & marketing"].includes(userRole);
-      if (!allowed) {
-        return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+      if (pathname.startsWith("/crm") || pathname.startsWith("/projects")) {
+        if (!isSales) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
       }
-    }
 
-    if (pathname.startsWith("/accounts")) {
-      const allowed = isAdmin || ["accountant", "accounts"].includes(userRole);
-      if (!allowed) {
-        return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+      if (pathname.startsWith("/accounts")) {
+        if (!isAccounts) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
       }
-    }
 
-    if (pathname.startsWith("/hr")) {
-      const allowed = isAdmin || ["hr"].includes(userRole);
-      if (!allowed) {
-        return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+      if (pathname.startsWith("/hr")) {
+        if (!isHR) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
       }
-    }
 
-    if (pathname.startsWith("/crm") || pathname.startsWith("/projects")) {
-      // CRM and Projects are deprecated/not used, restrict to Admin only or redirect
-      if (!isAdmin) {
-        return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+      if (pathname.startsWith("/files") || pathname.startsWith("/announcements")) {
+        if (!isHR && !isAccounts && !isSales) {
+          return NextResponse.redirect(getRedirectUrl("/dashboard", req));
+        }
       }
     }
   }
