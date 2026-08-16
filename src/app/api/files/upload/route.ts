@@ -1,67 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/auth";
-import fs from "fs";
-import path from "path";
-
-const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit for spreadsheets/documents
-
-function getUploadsDirs() {
-  const rootDir = process.cwd();
-  
-  // Find persistent portal root
-  let portalRoot = rootDir;
-  let current = rootDir;
-  for (let i = 0; i < 10; i++) {
-    const buildsPath = path.join(current, ".builds");
-    const hbuildsPath = path.join(current, "hbuilds");
-    if (
-      (fs.existsSync(buildsPath) && fs.statSync(buildsPath).isDirectory()) ||
-      (fs.existsSync(hbuildsPath) && fs.statSync(hbuildsPath).isDirectory())
-    ) {
-      portalRoot = current;
-      break;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-
-  let outerUploadsDir: string;
-  let standaloneUploadsDir: string;
-
-  if (process.env.NODE_ENV === "production") {
-    // If UPLOADS_DIR environment variable is set, use it for persistent storage
-    const envDir = process.env.UPLOADS_DIR;
-    if (envDir) {
-      let corrected = envDir;
-      if (rootDir.includes("solarkidunya.com") && corrected.includes("knocksolar.com")) {
-        corrected = corrected.replace("knocksolar.com", "solarkidunya.com");
-      }
-      if (rootDir.includes("hbuilds") && corrected.includes(".builds")) {
-        corrected = corrected.replace(".builds", "hbuilds");
-      }
-      if (corrected.includes("hbuilds/current/nodejs/public/uploads")) {
-        corrected = corrected.replace("hbuilds/current/nodejs/public/uploads", "uploads");
-      }
-      outerUploadsDir = corrected;
-      standaloneUploadsDir = corrected;
-    } else {
-      // Fallback
-      outerUploadsDir = path.join(portalRoot, "uploads");
-      standaloneUploadsDir = path.join(rootDir, ".next", "standalone", "public", "uploads");
-    }
-  } else {
-    // Local dev
-    outerUploadsDir = path.join(rootDir, "public", "uploads");
-    standaloneUploadsDir = path.join(rootDir, "public", "uploads");
-  }
-
-  return {
-    outerUploadsDir,
-    standaloneUploadsDir,
-  };
-}
+import { saveUploadedFile, MAX_FILE_SIZE_BYTES, logPortalActivity } from "@/lib/upload-helper";
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,81 +16,109 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    
+    // Support both multiple files ('files') and single file ('file')
+    const filesList: File[] = [];
+    const multiFiles = formData.getAll("files");
+    if (multiFiles && multiFiles.length > 0) {
+      for (const item of multiFiles) {
+        if (item instanceof File) filesList.push(item);
+      }
+    }
+    const singleFile = formData.get("file");
+    if (singleFile instanceof File && !filesList.some((f) => f.name === singleFile.name)) {
+      filesList.push(singleFile);
+    }
+
+    if (filesList.length === 0) {
+      return NextResponse.json({ error: "No files provided." }, { status: 400 });
+    }
+
     const parentIdParam = formData.get("parentId") as string | null;
+    const departmentParam = formData.get("department") as string | null;
+    const docTypeParam = formData.get("docType") as string | null;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+    let pId: number | null = null;
+    if (parentIdParam && parentIdParam !== "" && parentIdParam !== "null" && parentIdParam !== "undefined") {
+      const parsed = parseInt(parentIdParam);
+      if (!isNaN(parsed)) pId = parsed;
     }
-
-    if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: "File too large. Maximum size is 25 MB." }, { status: 400 });
-    }
-
-    const ext = path.extname(file.name) || "";
-    const cleanExt = ext.replace(".", "").toLowerCase();
-    const safeBase = file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .substring(0, 60);
-    const timestamp = Date.now();
-    const filename = `${safeBase}_${timestamp}${ext}`;
-
-    const { outerUploadsDir, standaloneUploadsDir } = getUploadsDirs();
-    const relativeSubPath = path.join("Documents", filename);
-    const outerPath = path.join(outerUploadsDir, relativeSubPath);
-    const standalonePath = path.join(standaloneUploadsDir, relativeSubPath);
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Save to disk
-    await fs.promises.mkdir(path.dirname(outerPath), { recursive: true });
-    await fs.promises.writeFile(outerPath, buffer);
-
-    await fs.promises.mkdir(path.dirname(standalonePath), { recursive: true });
-    await fs.promises.writeFile(standalonePath, buffer);
-
-    // Get parent folder info
-    let pId = parentIdParam ? parseInt(parentIdParam) : null;
-    if (isNaN(pId as number)) pId = null;
 
     let parentPath = "/";
+    let folderDept = departmentParam || payload.department || "Shared";
 
     if (pId) {
       const parentFolder = await prisma.fileItem.findUnique({ where: { id: pId } });
       if (parentFolder) {
         parentPath = `${parentFolder.path}/${parentFolder.name}`.replace(/\/\/+/g, "/");
+        folderDept = parentFolder.department || folderDept;
       }
     }
 
-    // Auto-detect docType classification
-    let docType = "Other";
-    const searchString = (file.name + " " + parentPath).toLowerCase();
-    if (searchString.includes("training") || searchString.includes("learn") || searchString.includes("material")) {
-      docType = "Training";
-    } else if (searchString.includes("advertisement") || searchString.includes("branding") || searchString.includes("ad") || searchString.includes("social")) {
-      docType = "Advertisements";
-    } else if (["xlsx", "xls", "csv"].includes(cleanExt) || searchString.includes("price") || searchString.includes("invoice") || searchString.includes("quotation")) {
-      docType = "Documents";
+    const savedFileItems = [];
+
+    for (const file of filesList) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `File "${file.name}" exceeds the 25 MB limit.` },
+          { status: 400 }
+        );
+      }
+
+      const saveResult = await saveUploadedFile(file, "Documents", file.name);
+      if (!saveResult.success) {
+        return NextResponse.json({ error: saveResult.error || "Upload failed." }, { status: 500 });
+      }
+
+      // Detect docType classification
+      let docType = docTypeParam || "Other";
+      const cleanExt = saveResult.fileExtension;
+      const searchString = (file.name + " " + parentPath).toLowerCase();
+      if (!docTypeParam) {
+        if (searchString.includes("training") || searchString.includes("sop") || searchString.includes("learn")) {
+          docType = "Training";
+        } else if (searchString.includes("advertisement") || searchString.includes("branding") || searchString.includes("ad")) {
+          docType = "Advertisements";
+        } else if (searchString.includes("quotation") || searchString.includes("quote")) {
+          docType = "Quotations";
+        } else if (["xlsx", "xls", "csv", "docx", "doc", "pdf"].includes(cleanExt)) {
+          docType = "Documents";
+        }
+      }
+
+      const newFileItem = await prisma.fileItem.create({
+        data: {
+          name: file.name,
+          isFolder: false,
+          fileExtension: cleanExt,
+          fileSize: saveResult.fileSize,
+          fileUrl: saveResult.fileUrl,
+          parentId: pId,
+          path: parentPath,
+          department: folderDept,
+          docType: docType,
+          uploadedById: payload.userId,
+          isFavorite: false,
+        },
+      });
+
+      await logPortalActivity({
+        userId: payload.userId,
+        action: "FILE_UPLOAD",
+        details: `${payload.name || "User"} uploaded "${file.name}" to ${folderDept} (${parentPath})`,
+      });
+
+      savedFileItems.push(newFileItem);
     }
 
-    const newFileItem = await prisma.fileItem.create({
-      data: {
-        name: file.name,
-        isFolder: false,
-        fileExtension: cleanExt,
-        fileSize: file.size,
-        fileUrl: `/uploads/Documents/${filename}`,
-        parentId: pId,
-        path: parentPath,
-        department: payload.department || "Shared",
-        docType: docType,
-        isFavorite: false,
+    return NextResponse.json(
+      {
+        success: true,
+        files: savedFileItems,
+        file: savedFileItems[0],
       },
-    });
-
-    return NextResponse.json({ success: true, file: newFileItem }, { status: 201 });
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("FileManager upload error:", error);
     return NextResponse.json({ error: error.message || "Upload failed." }, { status: 500 });

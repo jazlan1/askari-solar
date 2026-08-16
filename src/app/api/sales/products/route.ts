@@ -55,10 +55,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    const userRoles = (payload.role || "").split(",").map(r => r.trim());
-    const isHrOrAdmin = userRoles.some(r => ["Admin", "HR", "Sales & Marketing Department", "Management", "Super Admin"].includes(r));
-    if (!isHrOrAdmin) {
-      return NextResponse.json({ error: "Forbidden: Unauthorized role" }, { status: 403 });
+    const userRoles = (payload.role || "").split(",").map((r) => r.trim().toLowerCase());
+    const isPrivileged = userRoles.some((r) =>
+      ["admin", "super admin", "superadmin", "management", "hr", "sales & marketing department", "sales", "accountant", "accounts"].includes(r)
+    );
+    if (!isPrivileged) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const body = await req.json();

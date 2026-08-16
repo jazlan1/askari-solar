@@ -83,6 +83,7 @@ export async function PATCH(
       priority,
       assignedToId,
       resolutionProof,
+      invoiceGenerated,
       category,
       subject,
       description,
@@ -120,6 +121,20 @@ export async function PATCH(
       oldValue: string | null;
       newValue: string | null;
     }> = [];
+
+    if (invoiceGenerated !== undefined) {
+      const isInvGen = Boolean(invoiceGenerated);
+      updateData.invoiceGenerated = isInvGen;
+      updateData.invoiceGeneratedAt = isInvGen ? new Date() : null;
+      updateData.invoiceGeneratedById = isInvGen ? payload.userId : null;
+      historyEntries.push({
+        complaintId,
+        changedById: payload.userId,
+        field: "invoiceGenerated",
+        oldValue: existing.invoiceGenerated ? "Generated" : "Pending",
+        newValue: isInvGen ? "Generated" : "Pending",
+      });
+    }
 
     if (status && status !== existing.status) {
       updateData.status = status;

@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
         department: true,
         createdAt: true,
         documents: true,
+        secondaryPhone: true,
+        additionalPhone: true,
+        emergencyContacts: true,
       },
     });
 
@@ -46,13 +49,23 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = await verifyJWT(token);
-    const userRoles = (payload?.role || "").split(",").map(r => r.trim());
-    if (!payload || !userRoles.some(r => ["Admin", "Super Admin", "HR"].includes(r))) {
+    const userRoles = (payload?.role || "").split(",").map((r) => r.trim().toLowerCase());
+    if (!payload || !userRoles.some((r) => ["admin", "super admin", "superadmin", "management", "hr"].includes(r))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { name, email, password, role, department, documents } = body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      department,
+      documents,
+      secondaryPhone,
+      additionalPhone,
+      emergencyContacts,
+    } = body;
 
     if (!name || !email || !password || !role) {
       return NextResponse.json(
@@ -74,12 +87,15 @@ export async function POST(req: NextRequest) {
 
     const newUser = await prisma.user.create({
       data: {
-        name,
+        name: name.trim(),
         email: email.toLowerCase().trim(),
         password: hashPassword(password),
         role,
         department: department || "None",
-        documents: documents || null,
+        documents: typeof documents === "string" ? documents : documents ? JSON.stringify(documents) : null,
+        secondaryPhone: secondaryPhone?.trim() || null,
+        additionalPhone: additionalPhone?.trim() || null,
+        emergencyContacts: typeof emergencyContacts === "string" ? emergencyContacts : emergencyContacts ? JSON.stringify(emergencyContacts) : null,
       },
     });
 
@@ -100,6 +116,9 @@ export async function POST(req: NextRequest) {
         email: newUser.email,
         role: newUser.role,
         department: newUser.department,
+        secondaryPhone: newUser.secondaryPhone,
+        additionalPhone: newUser.additionalPhone,
+        emergencyContacts: newUser.emergencyContacts,
       },
     });
   } catch (error) {
@@ -119,13 +138,24 @@ export async function PUT(req: NextRequest) {
     }
 
     const payload = await verifyJWT(token);
-    const userRoles = (payload?.role || "").split(",").map(r => r.trim());
-    if (!payload || !userRoles.some(r => ["Admin", "Super Admin", "HR"].includes(r))) {
+    const userRoles = (payload?.role || "").split(",").map((r) => r.trim().toLowerCase());
+    if (!payload || !userRoles.some((r) => ["admin", "super admin", "superadmin", "management", "hr"].includes(r))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { id, name, email, role, department, password, documents } = body;
+    const {
+      id,
+      name,
+      email,
+      role,
+      department,
+      password,
+      documents,
+      secondaryPhone,
+      additionalPhone,
+      emergencyContacts,
+    } = body;
 
     if (!id || !name || !email || !role) {
       return NextResponse.json(
@@ -134,11 +164,12 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const targetId = parseInt(id.toString());
     const existing = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
     });
 
-    if (existing && existing.id !== parseInt(id)) {
+    if (existing && existing.id !== targetId) {
       return NextResponse.json(
         { error: "This email is already in use by another user" },
         { status: 400 }
@@ -146,19 +177,31 @@ export async function PUT(req: NextRequest) {
     }
 
     const updateData: any = {
-      name,
+      name: name.trim(),
       email: email.toLowerCase().trim(),
       role,
       department: department || "None",
-      documents: documents !== undefined ? documents : undefined,
     };
+
+    if (documents !== undefined) {
+      updateData.documents = typeof documents === "string" ? documents : documents ? JSON.stringify(documents) : null;
+    }
+    if (secondaryPhone !== undefined) {
+      updateData.secondaryPhone = secondaryPhone?.trim() || null;
+    }
+    if (additionalPhone !== undefined) {
+      updateData.additionalPhone = additionalPhone?.trim() || null;
+    }
+    if (emergencyContacts !== undefined) {
+      updateData.emergencyContacts = typeof emergencyContacts === "string" ? emergencyContacts : emergencyContacts ? JSON.stringify(emergencyContacts) : null;
+    }
 
     if (password && password.trim() !== "") {
       updateData.password = hashPassword(password);
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: parseInt(id) },
+      where: { id: targetId },
       data: updateData,
     });
 
@@ -189,8 +232,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     const payload = await verifyJWT(token);
-    const userRoles = (payload?.role || "").split(",").map(r => r.trim());
-    if (!payload || !userRoles.some(r => ["Admin", "Super Admin"].includes(r))) {
+    const userRoles = (payload?.role || "").split(",").map((r) => r.trim().toLowerCase());
+    if (!payload || !userRoles.some((r) => ["admin", "super admin", "superadmin"].includes(r))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -216,43 +259,35 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Disconnect user from relation references first to prevent DB FK constraint errors
     await prisma.$transaction([
       prisma.attendance.deleteMany({ where: { userId: targetUserId } }),
       prisma.auditLog.deleteMany({ where: { userId: targetUserId } }),
       prisma.announcement.deleteMany({ where: { createdById: targetUserId } }),
-      prisma.task.deleteMany({
-        where: { assignedById: targetUserId }
-      }),
+      prisma.task.deleteMany({ where: { assignedById: targetUserId } }),
       prisma.complaint.updateMany({
         where: { assignedToId: targetUserId },
-        data: { assignedToId: null }
+        data: { assignedToId: null },
       }),
-      prisma.complaintNote.deleteMany({
-        where: { authorId: targetUserId }
-      }),
+      prisma.complaintNote.deleteMany({ where: { authorId: targetUserId } }),
       prisma.complaintHistory.updateMany({
         where: { changedById: targetUserId },
-        data: { changedById: null }
+        data: { changedById: null },
       }),
       prisma.fileItem.updateMany({
         where: { uploadedById: targetUserId },
-        data: { uploadedById: null }
+        data: { uploadedById: null },
       }),
       prisma.lead.updateMany({
         where: { salesPersonId: targetUserId },
-        data: { salesPersonId: null }
+        data: { salesPersonId: null },
       }),
       prisma.user.update({
         where: { id: targetUserId },
-        data: {
-          receivedTasks: { set: [] }
-        }
+        data: { receivedTasks: { set: [] } },
       }),
       prisma.user.delete({ where: { id: targetUserId } }),
     ]);
 
-    // Create audit log
     await prisma.auditLog.create({
       data: {
         userId: payload.userId,

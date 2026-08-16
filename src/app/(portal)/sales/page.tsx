@@ -245,7 +245,13 @@ export default function SalesPage() {
     return list;
   };
 
-  const isPricingPrivileged = ["Admin", "HR", "Sales & Marketing Department", "Management"].includes(user?.role || "");
+  const userRolesList = (user?.role || "")
+    .split(",")
+    .map((r: string) => r.trim().toLowerCase())
+    .filter(Boolean);
+  const isPricingPrivileged = userRolesList.some((r: string) =>
+    ["admin", "super admin", "superadmin", "management", "hr", "sales & marketing department", "sales", "accountant", "accounts"].includes(r)
+  );
 
   const updateField = (idx: number, field: string, val: any) => {
     setEditableProducts((prev) =>
@@ -415,7 +421,7 @@ export default function SalesPage() {
               activeTab === "training" ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
             }`}
           >
-            SOPs & Training
+            Sales SOPs and Training
           </button>
           <button
             onClick={() => { setActiveTab("pricing"); setSearchQuery(""); }}

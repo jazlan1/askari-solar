@@ -31,7 +31,8 @@ import {
   X,
   PlayCircle,
   MessageSquare,
-  FileText
+  FileText,
+  BookOpen
 } from "lucide-react";
 
 export default function PortalLayout({ children }: { children: ReactNode }) {
@@ -196,7 +197,8 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
       links: [
         { label: "Staff Management", href: "/users", icon: Users, roles: ["Admin", "HR"] },
         { label: "Performance", href: "/performance", icon: TrendingUp, roles: ["Admin"] },
-        { label: "File Manager", href: "/files", icon: FolderClosed, roles: ["Admin", "HR", "Accountant", "Sales & Marketing Department"] }
+        { label: "File Manager", href: "/files", icon: FolderClosed, roles: ["Admin", "HR", "Accountant", "Sales & Marketing Department"] },
+        { label: "Work Diary", href: "/work-diary", icon: BookOpen, roles: ["all"] }
       ]
     },
     {
@@ -540,9 +542,13 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
 
       {activeDocxFile && (
         <DocxViewer
+          fileId={activeDocxFile.id}
           fileUrl={activeDocxFile.fileUrl}
           fileName={activeDocxFile.name}
           onClose={() => setActiveDocxFile(null)}
+          onSaveSuccess={() => {
+            window.dispatchEvent(new CustomEvent("file-saved"));
+          }}
         />
       )}
 

@@ -149,9 +149,9 @@ export async function POST(req: NextRequest) {
       attachmentUrl,
     } = body;
 
-    if (!fullName || !phone || !category || !subject || !description || !contactMethod || !installedBy) {
+    if (!fullName || !fullName.trim() || !phone || !phone.trim() || !address || !address.trim() || !category || !subject || !description || !contactMethod) {
       return NextResponse.json(
-        { error: "Full name, phone, category, subject, description, contact method, and installer are required." },
+        { error: "Full name, phone, address, category, subject, description, and contact method are required." },
         { status: 400 }
       );
     }
@@ -168,9 +168,9 @@ export async function POST(req: NextRequest) {
         fullName: fullName.trim(),
         phone: phone.trim(),
         email: email?.trim() || null,
-        address: address?.trim() || null,
+        address: address.trim(),
         projectId: projectId?.trim() || null,
-        installedBy: installedBy?.trim() || null,
+        installedBy: installedBy?.trim() || "Askari Solar Energy",
         category,
         subject: subject.trim(),
         description: description.trim(),
@@ -180,6 +180,7 @@ export async function POST(req: NextRequest) {
         attachmentUrl: attachmentUrl || null,
         status: "New",
         priority: "Medium",
+        invoiceGenerated: false,
       },
     });
 

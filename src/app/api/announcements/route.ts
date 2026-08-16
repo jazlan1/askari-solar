@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    // Employees only see announcements matching "All" or their specific department
     const userDept = payload.department || "Sales";
     const announcements = await prisma.announcement.findMany({
       where: {
@@ -34,7 +33,18 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, announcements });
+    // Fetch recent activity audit logs
+    const auditLogs = await prisma.auditLog.findMany({
+      take: 30,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { name: true, email: true, role: true, department: true },
+        },
+      },
+    });
+
+    return NextResponse.json({ success: true, announcements, auditLogs });
   } catch (error) {
     console.error("Announcements GET error:", error);
     return NextResponse.json(
@@ -56,8 +66,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    // Restrict publishing to Super Admin, Admin, Management, and HR
-    const isPrivileged = ["Super Admin", "Admin", "Management", "HR"].includes(payload.role);
+    const userRoles = (payload.role || "").split(",").map((r) => r.trim().toLowerCase());
+    const isPrivileged = userRoles.some((r) =>
+      ["admin", "super admin", "superadmin", "management", "hr"].includes(r)
+    );
     if (!isPrivileged) {
       return NextResponse.json({ error: "Forbidden: Unauthorized to publish announcements" }, { status: 403 });
     }
@@ -70,12 +82,21 @@ export async function POST(req: NextRequest) {
 
     const announcement = await prisma.announcement.create({
       data: {
-        title,
-        content,
+        title: title.trim(),
+        content: content.trim(),
         department: department || "All",
         attachmentUrl: attachmentUrl || null,
         isPinned: !!isPinned,
         createdById: payload.userId,
+      },
+    });
+
+    // Create Audit Log
+    await prisma.auditLog.create({
+      data: {
+        userId: payload.userId,
+        action: "ANNOUNCEMENT_POST",
+        details: `Published company notice "${title}" for department: ${department || "All"}`,
       },
     });
 

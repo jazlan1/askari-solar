@@ -2,95 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/auth";
 import { syncFilesystemWithDb } from "@/lib/syncFiles";
-import fs from "fs";
-import path from "path";
-
-function getUploadsDirs() {
-  const rootDir = process.cwd();
-  
-  let portalRoot = rootDir;
-  let current = rootDir;
-  for (let i = 0; i < 10; i++) {
-    const buildsPath = path.join(current, ".builds");
-    const hbuildsPath = path.join(current, "hbuilds");
-    if (
-      (fs.existsSync(buildsPath) && fs.statSync(buildsPath).isDirectory()) ||
-      (fs.existsSync(hbuildsPath) && fs.statSync(hbuildsPath).isDirectory())
-    ) {
-      portalRoot = current;
-      break;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-
-  let outerUploadsDir: string;
-  let standaloneUploadsDir: string;
-
-  if (process.env.NODE_ENV === "production") {
-    const envDir = process.env.UPLOADS_DIR;
-    if (envDir) {
-      let corrected = envDir;
-      if (rootDir.includes("solarkidunya.com") && corrected.includes("knocksolar.com")) {
-        corrected = corrected.replace("knocksolar.com", "solarkidunya.com");
-      }
-      if (rootDir.includes("hbuilds") && corrected.includes(".builds")) {
-        corrected = corrected.replace(".builds", "hbuilds");
-      }
-      if (corrected.includes("hbuilds/current/nodejs/public/uploads")) {
-        corrected = corrected.replace("hbuilds/current/nodejs/public/uploads", "uploads");
-      }
-      outerUploadsDir = corrected;
-      standaloneUploadsDir = corrected;
-    } else {
-      outerUploadsDir = path.join(portalRoot, "uploads");
-      standaloneUploadsDir = path.join(rootDir, ".next", "standalone", "public", "uploads");
-    }
-  } else {
-    outerUploadsDir = path.join(rootDir, "public", "uploads");
-    standaloneUploadsDir = path.join(rootDir, "public", "uploads");
-  }
-
-  return {
-    outerUploadsDir,
-    standaloneUploadsDir,
-  };
-}
-
-function deletePhysicalFile(fileUrl: string | null) {
-  if (!fileUrl) return;
-  let relativePath = fileUrl;
-  if (relativePath.startsWith("/uploads/")) {
-    relativePath = relativePath.substring("/uploads/".length);
-  } else if (relativePath.startsWith("/api/uploads/")) {
-    relativePath = relativePath.substring("/api/uploads/".length);
-  }
-  
-  if (relativePath.includes("..") || relativePath.startsWith("/")) {
-    return;
-  }
-  
-  const { outerUploadsDir, standaloneUploadsDir } = getUploadsDirs();
-  const outerPath = path.join(outerUploadsDir, ...relativePath.split("/"));
-  const standalonePath = path.join(standaloneUploadsDir, ...relativePath.split("/"));
-  
-  try {
-    if (fs.existsSync(outerPath) && fs.statSync(outerPath).isFile()) {
-      fs.unlinkSync(outerPath);
-    }
-  } catch (err) {
-    console.error("Failed to delete outer physical file:", outerPath, err);
-  }
-  
-  try {
-    if (fs.existsSync(standalonePath) && fs.statSync(standalonePath).isFile()) {
-      fs.unlinkSync(standalonePath);
-    }
-  } catch (err) {
-    console.error("Failed to delete standalone physical file:", standalonePath, err);
-  }
-}
+import { deleteUploadedFile, logPortalActivity } from "@/lib/upload-helper";
 
 export async function GET(req: NextRequest) {
   try {
@@ -112,40 +24,53 @@ export async function GET(req: NextRequest) {
     const isFavoriteParam = searchParams.get("favorites");
     const searchQuery = searchParams.get("search");
     const allParam = searchParams.get("all");
+    const departmentParam = searchParams.get("department");
 
-    let items;
+    const where: any = {};
+
+    if (departmentParam && departmentParam !== "All" && departmentParam !== "Shared") {
+      where.department = departmentParam;
+    }
 
     if (allParam === "true") {
-      items = await prisma.fileItem.findMany({
+      const items = await prisma.fileItem.findMany({
+        where,
         orderBy: { isFolder: "desc" },
       });
-    } else
+      return NextResponse.json({ success: true, items });
+    }
 
     if (searchQuery) {
-      items = await prisma.fileItem.findMany({
-        where: {
-          name: { contains: searchQuery },
-        },
+      where.name = { contains: searchQuery };
+      const items = await prisma.fileItem.findMany({
+        where,
         orderBy: { isFolder: "desc" },
       });
-    } else if (isFavoriteParam === "true") {
-      items = await prisma.fileItem.findMany({
-        where: { isFavorite: true },
-        orderBy: { isFolder: "desc" },
-      });
-    } else {
-      let parentId: number | null = null;
-      if (parentIdParam && parentIdParam !== "" && parentIdParam !== "null" && parentIdParam !== "undefined") {
-        const parsed = parseInt(parentIdParam);
-        if (!isNaN(parsed)) {
-          parentId = parsed;
-        }
-      }
-      items = await prisma.fileItem.findMany({
-        where: { parentId },
-        orderBy: { isFolder: "desc" },
-      });
+      return NextResponse.json({ success: true, items });
     }
+
+    if (isFavoriteParam === "true") {
+      where.isFavorite = true;
+      const items = await prisma.fileItem.findMany({
+        where,
+        orderBy: { isFolder: "desc" },
+      });
+      return NextResponse.json({ success: true, items });
+    }
+
+    let parentId: number | null = null;
+    if (parentIdParam && parentIdParam !== "" && parentIdParam !== "null" && parentIdParam !== "undefined") {
+      const parsed = parseInt(parentIdParam);
+      if (!isNaN(parsed)) {
+        parentId = parsed;
+      }
+    }
+    where.parentId = parentId;
+
+    const items = await prisma.fileItem.findMany({
+      where,
+      orderBy: [{ isFolder: "desc" }, { name: "asc" }],
+    });
 
     return NextResponse.json({ success: true, items });
   } catch (error) {
@@ -169,36 +94,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
+    const userRoles = (payload.role || "").split(",").map((r) => r.trim().toLowerCase());
+    const isAdmin = userRoles.some((r) => ["admin", "super admin", "superadmin", "management"].includes(r));
+
     const body = await req.json();
     const { action } = body;
 
     if (action === "CREATE_FOLDER") {
-      const { name, parentId, folderColor } = body;
-      if (!name) {
+      const { name, parentId, folderColor, department, docType } = body;
+      if (!name || !name.trim()) {
         return NextResponse.json({ error: "Folder name is required" }, { status: 400 });
       }
 
       const pId = parentId ? parseInt(parentId.toString()) : null;
-      
+
       // Calculate virtual path
       let virtualPath = "/";
+      let folderDept = department || payload.department || "Shared";
+
       if (pId) {
         const parentFolder = await prisma.fileItem.findUnique({ where: { id: pId } });
         if (parentFolder) {
-          virtualPath = `${parentFolder.path}/${parentFolder.name}`;
+          virtualPath = `${parentFolder.path}/${parentFolder.name}`.replace(/\/\/+/g, "/");
+          folderDept = parentFolder.department || folderDept;
         }
       }
 
       const newFolder = await prisma.fileItem.create({
         data: {
-          name,
+          name: name.trim(),
           isFolder: true,
           folderColor: folderColor || "blue",
           path: virtualPath,
           parentId: pId,
-          department: payload.department || "Shared",
-          docType: "Other",
+          department: folderDept,
+          docType: docType || "Other",
+          uploadedById: payload.userId,
         },
+      });
+
+      await logPortalActivity({
+        userId: payload.userId,
+        action: "FOLDER_CREATE",
+        details: `${payload.name || "User"} created folder "${name.trim()}" in ${folderDept}`,
       });
 
       return NextResponse.json({ success: true, folder: newFolder });
@@ -206,13 +144,29 @@ export async function POST(req: NextRequest) {
 
     if (action === "RENAME") {
       const { id, name } = body;
-      if (!id || !name) {
+      if (!id || !name || !name.trim()) {
         return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
       }
 
+      const itemId = parseInt(id.toString());
+      const itemToUpdate = await prisma.fileItem.findUnique({ where: { id: itemId } });
+      if (!itemToUpdate) {
+        return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      }
+
+      if (!isAdmin && itemToUpdate.uploadedById !== payload.userId && itemToUpdate.department !== payload.department) {
+        return NextResponse.json({ error: "Unauthorized to rename this item" }, { status: 403 });
+      }
+
       const updated = await prisma.fileItem.update({
-        where: { id: parseInt(id.toString()) },
-        data: { name },
+        where: { id: itemId },
+        data: { name: name.trim() },
+      });
+
+      await logPortalActivity({
+        userId: payload.userId,
+        action: "FILE_RENAME",
+        details: `${payload.name || "User"} renamed "${itemToUpdate.name}" to "${name.trim()}"`,
       });
 
       return NextResponse.json({ success: true, item: updated });
@@ -243,25 +197,37 @@ export async function POST(req: NextRequest) {
         where: { id: itemId },
       });
 
-      if (itemToDelete) {
-        if (itemToDelete.isFolder) {
-          const parentFolderPath = `${itemToDelete.path}/${itemToDelete.name}`.replace(/\/\/+/g, "/");
-          const childFiles = await prisma.fileItem.findMany({
-            where: {
-              isFolder: false,
-              path: { startsWith: parentFolderPath },
-            },
-          });
-          for (const file of childFiles) {
-            deletePhysicalFile(file.fileUrl);
-          }
-        } else {
-          deletePhysicalFile(itemToDelete.fileUrl);
+      if (!itemToDelete) {
+        return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      }
+
+      if (!isAdmin && itemToDelete.uploadedById !== payload.userId && itemToDelete.department !== payload.department) {
+        return NextResponse.json({ error: "Unauthorized to delete this item" }, { status: 403 });
+      }
+
+      if (itemToDelete.isFolder) {
+        const parentFolderPath = `${itemToDelete.path}/${itemToDelete.name}`.replace(/\/\/+/g, "/");
+        const childFiles = await prisma.fileItem.findMany({
+          where: {
+            isFolder: false,
+            path: { startsWith: parentFolderPath },
+          },
+        });
+        for (const file of childFiles) {
+          await deleteUploadedFile(file.fileUrl);
         }
+      } else {
+        await deleteUploadedFile(itemToDelete.fileUrl);
       }
 
       await prisma.fileItem.delete({
         where: { id: itemId },
+      });
+
+      await logPortalActivity({
+        userId: payload.userId,
+        action: "FILE_DELETE",
+        details: `${payload.name || "User"} deleted ${itemToDelete.isFolder ? "folder" : "file"} "${itemToDelete.name}"`,
       });
 
       return NextResponse.json({ success: true, message: "Item deleted successfully" });
@@ -280,7 +246,7 @@ export async function POST(req: NextRequest) {
       if (npId) {
         const parentFolder = await prisma.fileItem.findUnique({ where: { id: npId } });
         if (parentFolder) {
-          virtualPath = `${parentFolder.path}/${parentFolder.name}`;
+          virtualPath = `${parentFolder.path}/${parentFolder.name}`.replace(/\/\/+/g, "/");
         }
       }
 

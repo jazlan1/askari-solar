@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-
-const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+import { saveUploadedFile, MAX_FILE_SIZE_BYTES } from "@/lib/upload-helper";
 
 // POST — Public: upload customer photo or warranty card
 export async function POST(req: NextRequest) {
@@ -15,29 +12,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided." }, { status: 400 });
     }
 
-    if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: "File too large. Maximum size is 10 MB." }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json({ error: "File too large. Maximum size is 25 MB." }, { status: 400 });
     }
 
-    const ext = path.extname(file.name) || "";
-    const safeBase = file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .substring(0, 60);
-    const timestamp = Date.now();
-    const filename = `${safeBase}_${timestamp}${ext}`;
+    const result = await saveUploadedFile(file, "Feedback", file.name);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "Feedback");
-    await mkdir(uploadDir, { recursive: true });
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || "Upload failed." }, { status: 500 });
+    }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(path.join(uploadDir, filename), buffer);
-
-    const fileUrl = `/uploads/Feedback/${filename}`;
-    return NextResponse.json({ success: true, fileUrl, fileType }, { status: 201 });
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      fileUrl: result.fileUrl,
+      fileName: result.fileName,
+      fileType,
+    }, { status: 201 });
+  } catch (error: any) {
     console.error("Feedback upload error:", error);
-    return NextResponse.json({ error: "Upload failed." }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Upload failed." }, { status: 500 });
   }
 }

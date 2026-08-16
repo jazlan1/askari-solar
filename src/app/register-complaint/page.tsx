@@ -121,8 +121,8 @@ export default function ComplaintsPage() {
     e.preventDefault();
     setError(null);
 
-    if (!form.fullName || !form.phone || !form.category || !form.subject || !form.description || !form.contactMethod || !form.installedBy) {
-      setError("Please fill in all required fields.");
+    if (!form.fullName.trim() || !form.phone.trim() || !form.address.trim() || !form.category || !form.subject.trim() || !form.description.trim() || !form.contactMethod || !form.installedBy) {
+      setError("Please fill in all required fields, including your Address.");
       return;
     }
 
@@ -169,7 +169,7 @@ export default function ComplaintsPage() {
           </div>
           <button
             onClick={() => setSuccessId(null)}
-            className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm transition"
+            className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm transition"
           >
             Submit Another Complaint
           </button>
@@ -179,36 +179,31 @@ export default function ComplaintsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-amber-500 flex items-center justify-center">
-            <Sun className="h-5 w-5 text-zinc-950" />
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-3">
+            <Sun className="h-3.5 w-3.5" />
+            Askari Solar Energy — Customer Support
           </div>
-          <div>
-            <p className="text-sm font-extrabold tracking-wider uppercase text-amber-400">Askari Solar Energy</p>
-            <p className="text-xs text-zinc-500">Customer Complaint Portal</p>
-          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight">Register a Complaint</h1>
+          <p className="text-zinc-400 text-sm mt-2 max-w-lg mx-auto">
+            Please fill out the form below with your installation and issue details. Our engineering team will review and contact you promptly.
+          </p>
         </div>
-      </header>
 
-      {/* Hero */}
-      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 py-10 text-center px-4">
-        <h1 className="text-3xl font-black text-zinc-100 mb-2">Register a Complaint</h1>
-        <p className="text-zinc-400 max-w-xl mx-auto text-sm">
-          Experiencing a problem with your solar system? Fill out the form below and our support team will respond promptly.
-        </p>
-      </div>
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
-      {/* Form */}
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <form onSubmit={handleSubmit} className="space-y-8">
-
-          {/* Section: Contact Information */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Section: Customer Information */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-sm font-bold uppercase tracking-widest text-amber-400 mb-5 flex items-center gap-2">
-              <User className="h-4 w-4" /> Contact Information
+              <User className="h-4 w-4" /> Customer Information
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -235,7 +230,7 @@ export default function ComplaintsPage() {
                   <Phone className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
                   <input
                     type="tel"
-                    placeholder="03xx-xxxxxxx"
+                    placeholder="0300-1234567"
                     value={form.phone}
                     onChange={(e) => set("phone", e.target.value)}
                     required
@@ -260,15 +255,16 @@ export default function ComplaintsPage() {
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                  Address
+                  Address <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
                   <input
                     type="text"
-                    placeholder="Enter your Address (Street, City, Province)"
+                    placeholder="Enter your Complete Address (House/Street, Sector/Area, City)"
                     value={form.address}
                     onChange={(e) => set("address", e.target.value)}
+                    required
                     className="w-full glass-input rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none"
                   />
                 </div>

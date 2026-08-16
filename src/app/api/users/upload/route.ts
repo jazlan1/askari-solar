@@ -1,30 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import fs from "fs";
-import path from "path";
-
-const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB limit
-
-function getUploadsDirs() {
-  const rootDir = process.cwd();
-  const portalRoot = "D:\\Askari portal";
-  
-  let outerUploadsDir: string;
-  let standaloneUploadsDir: string;
-
-  if (process.env.NODE_ENV === "production") {
-    standaloneUploadsDir = path.join(rootDir, ".next", "standalone", "public", "uploads");
-    outerUploadsDir = path.join(portalRoot, "public", "uploads");
-  } else {
-    standaloneUploadsDir = path.join(rootDir, "public", "uploads");
-    outerUploadsDir = path.join(portalRoot, "public", "uploads");
-  }
-
-  return {
-    outerUploadsDir,
-    standaloneUploadsDir,
-  };
-}
+import { saveUploadedFile, MAX_FILE_SIZE_BYTES } from "@/lib/upload-helper";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,8 +13,8 @@ export async function POST(req: NextRequest) {
     if (!payload) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
-    const userRoles = (payload.role || "").split(",").map(r => r.trim());
-    if (!userRoles.some(r => ["Admin", "HR", "Super Admin", "Management"].includes(r))) {
+    const userRoles = (payload.role || "").split(",").map((r) => r.trim().toLowerCase());
+    if (!userRoles.some((r) => ["admin", "hr", "super admin", "superadmin", "management"].includes(r))) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
@@ -49,38 +25,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided." }, { status: 400 });
     }
 
-    if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: "File too large. Maximum size is 15 MB." }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json({ error: "File too large. Maximum size is 25 MB." }, { status: 400 });
     }
 
-    const ext = path.extname(file.name) || "";
-    const safeBase = file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .substring(0, 60);
-    const timestamp = Date.now();
-    const filename = `${safeBase}_${timestamp}${ext}`;
+    const result = await saveUploadedFile(file, "Users", file.name);
 
-    const { outerUploadsDir, standaloneUploadsDir } = getUploadsDirs();
-    const relativeSubPath = path.join("Users", filename);
-    const outerPath = path.join(outerUploadsDir, relativeSubPath);
-    const standalonePath = path.join(standaloneUploadsDir, relativeSubPath);
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Save to disk
-    await fs.promises.mkdir(path.dirname(outerPath), { recursive: true });
-    await fs.promises.writeFile(outerPath, buffer);
-
-    await fs.promises.mkdir(path.dirname(standalonePath), { recursive: true });
-    await fs.promises.writeFile(standalonePath, buffer);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || "Upload failed." }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
-      fileUrl: `/uploads/Users/${filename}`,
-      fileName: file.name,
-      fileSize: file.size
+      fileUrl: result.fileUrl,
+      fileName: result.fileName,
+      fileSize: result.fileSize,
     });
   } catch (error: any) {
     console.error("Employee document upload error:", error);

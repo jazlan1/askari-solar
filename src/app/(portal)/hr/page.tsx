@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useStore } from "@/store/useStore";
+import { getSafeFileUrl } from "@/lib/file-helper";
 import {
   Users,
   CheckCircle2,
@@ -15,13 +16,25 @@ import {
   CalendarDays,
   Filter,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  FileText,
+  FileSpreadsheet,
+  Folder,
+  UploadCloud,
+  FilePlus,
+  Trash2,
+  Edit,
+  Loader2,
+  Search,
+  ArrowLeft,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { getPKTDateString, getPKTTimeString, formatPKTDateDisplay, formatPKTDateTimeDisplay, format12HourTime } from "@/lib/dateUtils";
 
 export default function HRPage() {
-  const { user } = useStore();
+  const { user, setActiveExcelFile, setActiveDocxFile, setActivePdfFile } = useStore();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +43,16 @@ export default function HRPage() {
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"personal" | "management" | "daily">("personal");
+  const [activeTab, setActiveTab] = useState<"personal" | "management" | "daily" | "timetable">("personal");
+
+  // Timetable state
+  const [timetableItems, setTimetableItems] = useState<any[]>([]);
+  const [timetableLoading, setTimetableLoading] = useState(false);
+  const [timetableFolderId, setTimetableFolderId] = useState<number | null>(null);
+  const [timetableSearch, setTimetableSearch] = useState("");
+  const [timetableBreadcrumbs, setTimetableBreadcrumbs] = useState<any[]>([]);
+  const [timetableUploading, setTimetableUploading] = useState(false);
+  const timetableInputRef = useRef<HTMLInputElement>(null);
 
   // Daily Roster states
   const [selectedDailyDate, setSelectedDailyDate] = useState<string>(
@@ -226,9 +248,115 @@ export default function HRPage() {
     }
   }
 
+  async function fetchTimetableItems() {
+    try {
+      setTimetableLoading(true);
+      let url = `/api/files?department=HR`;
+      if (timetableSearch) {
+        url += `&search=${encodeURIComponent(timetableSearch)}`;
+      } else if (timetableFolderId) {
+        url += `&parentId=${timetableFolderId}`;
+      } else {
+        url += `&parentId=`;
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const d = await res.json();
+        setTimetableItems(d.items || []);
+      }
+    } catch (err) {
+      console.error("Failed to load timetable files:", err);
+    } finally {
+      setTimetableLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetchLogs();
   }, [selectedEmployeeId, filterDepartment, startDate, endDate, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "timetable") {
+      fetchTimetableItems();
+    }
+  }, [activeTab, timetableFolderId, timetableSearch]);
+
+  const handleTimetableUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    try {
+      setTimetableUploading(true);
+      const fd = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        fd.append("files", files[i]);
+      }
+      if (timetableFolderId) fd.append("parentId", timetableFolderId.toString());
+      fd.append("department", "HR");
+      fd.append("docType", "Timetable");
+
+      const res = await fetch("/api/files/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        fetchTimetableItems();
+        if (timetableInputRef.current) timetableInputRef.current.value = "";
+      } else {
+        const d = await res.json();
+        alert(d.error || "Upload failed");
+      }
+    } catch (err) {
+      alert("Upload failed.");
+    } finally {
+      setTimetableUploading(false);
+    }
+  };
+
+  const handleCreateNewTimetableDoc = async () => {
+    const title = prompt("Enter Timetable title (e.g. Weekly Duty Roster):", "Duty Timetable");
+    if (!title || !title.trim()) return;
+
+    try {
+      setTimetableUploading(true);
+      const blankContent = `Duty Timetable & Schedule\n\nDepartment: HR\nDate: ${new Date().toLocaleDateString()}\n\nSchedule Details:\n\n`;
+      const blob = new Blob([blankContent], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const filename = `${title.trim().replace(/\.[^.]+$/, "")}.docx`;
+
+      const fd = new FormData();
+      fd.append("files", blob, filename);
+      if (timetableFolderId) fd.append("parentId", timetableFolderId.toString());
+      fd.append("department", "HR");
+      fd.append("docType", "Timetable");
+
+      const res = await fetch("/api/files/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const d = await res.json();
+        await fetchTimetableItems();
+        if (d.file) {
+          handleTimetableFileClick(d.file);
+        }
+      }
+    } catch (err) {
+      alert("Failed to create document.");
+    } finally {
+      setTimetableUploading(false);
+    }
+  };
+
+  const handleTimetableFileClick = (file: any) => {
+    if (file.isFolder) {
+      setTimetableBreadcrumbs((prev) => [...prev, { id: file.id, name: file.name }]);
+      setTimetableFolderId(file.id);
+    } else if (file.fileUrl) {
+      const ext = file.fileExtension?.toLowerCase() || "";
+      if (["xlsx", "xls", "csv"].includes(ext)) {
+        setActiveExcelFile(file);
+      } else if (["docx", "doc"].includes(ext)) {
+        setActiveDocxFile(file);
+      } else if (ext === "pdf") {
+        setActivePdfFile(file);
+      } else {
+        window.open(getSafeFileUrl(file.fileUrl), "_blank");
+      }
+    }
+  };
 
 
 
@@ -386,6 +514,14 @@ export default function HRPage() {
               }`}
             >
               Daily Register Manager
+            </button>
+            <button
+              onClick={() => { setActiveTab("timetable"); }}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                activeTab === "timetable" ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Timetable & Templates
             </button>
           </div>
         )}
@@ -771,6 +907,144 @@ export default function HRPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* --- TIMETABLE & TEMPLATES TAB --- */}
+      {activeTab === "timetable" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-900/60 p-4 rounded-xl border border-zinc-800">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
+              <button
+                onClick={() => {
+                  setTimetableBreadcrumbs([]);
+                  setTimetableFolderId(null);
+                }}
+                className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
+              >
+                Timetable Root
+              </button>
+              {timetableBreadcrumbs.map((crumb, idx) => (
+                <div key={crumb.id} className="flex items-center gap-2">
+                  <ChevronRight className="h-3 w-3 text-zinc-600" />
+                  <button
+                    onClick={() => {
+                      setTimetableBreadcrumbs((prev) => prev.slice(0, idx + 1));
+                      setTimetableFolderId(crumb.id);
+                    }}
+                    className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
+                  >
+                    {crumb.name}
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center flex-wrap gap-2">
+              <input
+                type="file"
+                multiple
+                ref={timetableInputRef}
+                onChange={handleTimetableUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => timetableInputRef.current?.click()}
+                disabled={timetableUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                {timetableUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                <span>Upload Files</span>
+              </button>
+
+              <button
+                onClick={handleCreateNewTimetableDoc}
+                disabled={timetableUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                <FilePlus className="w-3.5 h-3.5" />
+                <span>New Word Doc</span>
+              </button>
+
+              <div className="relative w-full sm:w-56">
+                <input
+                  type="text"
+                  placeholder="Search timetable files..."
+                  value={timetableSearch}
+                  onChange={(e) => setTimetableSearch(e.target.value)}
+                  className="w-full glass-input rounded-lg py-1.5 pl-8 pr-3 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                />
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-500" />
+              </div>
+            </div>
+          </div>
+
+          {timetableLoading ? (
+            <div className="py-20 text-center text-zinc-500 flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+              <p className="text-xs">Loading timetable templates...</p>
+            </div>
+          ) : timetableItems.length === 0 ? (
+            <div className="py-16 text-center text-zinc-500 bg-zinc-900/30 border border-zinc-800 rounded-xl text-xs">
+              <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="font-semibold">No timetable files found</p>
+              <p className="text-[11px] text-zinc-600 mt-1">Upload schedule Word/Excel templates or click "New Word Doc".</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {timetableItems.map((file) => {
+                const isFolder = file.isFolder;
+                const ext = file.fileExtension?.toLowerCase() || "";
+                const isWord = ["docx", "doc"].includes(ext);
+                const isExcel = ["xlsx", "xls", "csv"].includes(ext);
+                const isPdf = ext === "pdf";
+
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => handleTimetableFileClick(file)}
+                    className="glass-card p-4 rounded-xl border border-zinc-800 hover:border-amber-500/30 hover:bg-zinc-900/40 cursor-pointer flex flex-col justify-between transition group h-36"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className={`p-2.5 rounded-xl ${
+                        isFolder
+                          ? "bg-amber-500/10 text-amber-500"
+                          : isWord
+                          ? "bg-blue-500/10 text-blue-400"
+                          : isExcel
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : isPdf
+                          ? "bg-rose-500/10 text-rose-400"
+                          : "bg-zinc-800 text-zinc-400"
+                      }`}>
+                        {isFolder ? <Folder className="h-5 w-5" /> : isWord ? <FileText className="h-5 w-5" /> : isExcel ? <FileSpreadsheet className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                      </div>
+
+                      {!isFolder && file.fileUrl && (
+                        <a
+                          href={getSafeFileUrl(file.fileUrl)}
+                          download={file.name}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded-lg text-zinc-500 hover:text-white"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <h4 className="text-xs font-bold text-zinc-200 line-clamp-2 group-hover:text-amber-400 transition">
+                        {file.name}
+                      </h4>
+                      <p className="text-[10px] text-zinc-500 mt-1 uppercase font-semibold">
+                        {isFolder ? "Folder" : file.fileExtension || "Document"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
