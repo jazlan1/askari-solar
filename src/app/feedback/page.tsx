@@ -317,23 +317,23 @@ export default function FeedbackPage() {
                 </div>
 
                 {/* Field Staff Dropdown */}
-                {fieldStaffList.length > 0 && (
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-zinc-400 mb-2">
-                      Field Staff Member Who Served You <span className="text-zinc-600">(optional)</span>
-                    </label>
-                    <select
-                      value={form.fieldStaffId || ""}
-                      onChange={(e) => set("fieldStaffId", e.target.value ? parseInt(e.target.value) : 0)}
-                      className="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-white bg-zinc-800 focus:outline-none focus:border-amber-500/50"
-                    >
-                      <option value="">Select team member (if known)...</option>
-                      {fieldStaffList.map((s: any) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-zinc-400 mb-2">
+                    Field Staff Member / Technician Who Served You <span className="text-zinc-500">(optional)</span>
+                  </label>
+                  <select
+                    value={form.fieldStaffId || ""}
+                    onChange={(e) => set("fieldStaffId", e.target.value ? parseInt(e.target.value) : 0)}
+                    className="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-white bg-zinc-800 focus:outline-none focus:border-amber-500/50"
+                  >
+                    <option value="">Select team member / technician (if known)...</option>
+                    {fieldStaffList.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} {s.role ? `— ${s.role}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 

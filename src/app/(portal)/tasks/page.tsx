@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { formatPKTDateDisplay, formatPKTDateTimeDisplay } from "@/lib/dateUtils";
+import { getSafeFileUrl } from "@/lib/file-helper";
 
 export default function TasksPage() {
   const { user } = useStore();
@@ -984,33 +985,33 @@ export default function TasksPage() {
                       <h4 className="text-sm font-bold text-white">{task.title}</h4>
                       <p className="text-xs text-zinc-400 leading-relaxed">{task.description}</p>
 
-                       {task.attachmentUrl && (
-                         <div className="mt-2 space-y-2">
-                           <span className="text-[10px] text-zinc-555 font-bold uppercase tracking-wider block">Reference Attachment:</span>
-                           {isImgUrl(task.attachmentUrl) ? (
-                             <div className="relative group max-w-sm rounded-xl overflow-hidden border border-zinc-800 bg-zinc-955/40">
-                               <img src={task.attachmentUrl} alt="Attachment" className="max-h-48 w-auto object-contain rounded" />
-                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                                 <a href={task.attachmentUrl} download className="p-1.5 rounded-full bg-amber-500 text-zinc-950 hover:bg-amber-400">
-                                   <Download className="h-3.5 w-3.5" />
-                                 </a>
-                               </div>
-                             </div>
-                           ) : (
-                             <a
-                               href={task.attachmentUrl}
-                               target="_blank"
-                               className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-amber-500 hover:text-amber-400 rounded-lg hover:border-amber-500/25 transition font-medium text-[10px]"
-                             >
-                               <Paperclip className="h-3.5 w-3.5" />
-                               <span>View Document ({task.attachmentUrl.split("/").pop()})</span>
-                             </a>
-                           )}
-                         </div>
-                       )}
+                      {task.attachmentUrl && (
+                        <div className="mt-2 space-y-2">
+                          <span className="text-[10px] text-zinc-555 font-bold uppercase tracking-wider block">Reference Attachment:</span>
+                          {isImgUrl(task.attachmentUrl) ? (
+                            <div className="relative group max-w-sm rounded-xl overflow-hidden border border-zinc-800 bg-zinc-955/40">
+                              <img src={getSafeFileUrl(task.attachmentUrl)} alt="Attachment" className="max-h-48 w-auto object-contain rounded" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                <a href={getSafeFileUrl(task.attachmentUrl)} download className="p-1.5 rounded-full bg-amber-500 text-zinc-950 hover:bg-amber-400">
+                                  <Download className="h-3.5 w-3.5" />
+                                </a>
+                              </div>
+                            </div>
+                          ) : (
+                            <a
+                              href={getSafeFileUrl(task.attachmentUrl)}
+                              target="_blank"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-amber-500 hover:text-amber-400 rounded-lg hover:border-amber-500/25 transition font-medium text-[10px]"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                              <span>View Document ({task.attachmentUrl.split("/").pop()})</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
 
                       {task.status === "Completed" && (
-                        <div className="p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 mt-2 space-y-1.5 text-[11px] text-zinc-400">
+                        <div className="p-3 bg-zinc-950/40 rounded-xl border border-zinc-855 mt-2 space-y-1.5 text-[11px] text-zinc-400">
                           <p className="text-emerald-400 font-bold flex items-center gap-1">
                             <CheckCircle className="h-3.5 w-3.5" />
                              <span>Submitted on {formatPKTDateTimeDisplay(task.completedAt)}</span>
@@ -1021,16 +1022,16 @@ export default function TasksPage() {
                               <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Submitted Proof of Work:</span>
                               {isImgUrl(task.completionPhoto) ? (
                                 <div className="relative group max-w-sm rounded-xl overflow-hidden border border-zinc-800 bg-zinc-955/40">
-                                  <img src={task.completionPhoto} alt="Proof" className="max-h-48 w-auto object-contain rounded" />
+                                  <img src={getSafeFileUrl(task.completionPhoto)} alt="Proof" className="max-h-48 w-auto object-contain rounded" />
                                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                                    <a href={task.completionPhoto} download className="p-1.5 rounded-full bg-amber-500 text-zinc-950 hover:bg-amber-400">
+                                    <a href={getSafeFileUrl(task.completionPhoto)} download className="p-1.5 rounded-full bg-amber-500 text-zinc-950 hover:bg-amber-400">
                                       <Download className="h-3.5 w-3.5" />
                                     </a>
                                   </div>
                                 </div>
                               ) : (
                                 <a
-                                  href={task.completionPhoto}
+                                  href={getSafeFileUrl(task.completionPhoto)}
                                   target="_blank"
                                   className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-amber-500 hover:text-amber-400 rounded-lg hover:border-amber-500/25 transition font-medium"
                                 >

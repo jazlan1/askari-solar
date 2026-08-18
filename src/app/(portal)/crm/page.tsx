@@ -30,6 +30,7 @@ import {
   Paperclip
 } from "lucide-react";
 import { useStore } from "@/store/useStore";
+import { getSafeFileUrl } from "@/lib/file-helper";
 
 export default function CRMPage() {
   const { user } = useStore();
@@ -1677,24 +1678,46 @@ export default function CRMPage() {
                 </div>
 
                 {selectedLead.completionProof && (
-                  <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 space-y-2">
-                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block flex items-center gap-1">
-                      <Paperclip className="h-3 w-3" />
+                  <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3">
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block flex items-center gap-1.5">
+                      <Paperclip className="h-3.5 w-3.5" />
                       <span>Completion Proof / Attached Document</span>
                     </span>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-zinc-300 text-xs truncate max-w-[200px]" title={selectedLead.completionProof}>
+
+                    {/* Inline Image Preview if image */}
+                    {/\.(jpe?g|png|webp|gif)$/i.test(selectedLead.completionProof) && (
+                      <div className="relative group max-w-sm rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900">
+                        <img
+                          src={getSafeFileUrl(selectedLead.completionProof)}
+                          alt="Completion Proof"
+                          className="max-h-56 w-full object-contain rounded-lg"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-900">
+                      <span className="text-zinc-300 text-xs truncate max-w-[220px]" title={selectedLead.completionProof}>
                         {selectedLead.completionProof.split("/").pop()}
                       </span>
-                      <a
-                        href={selectedLead.completionProof}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition shrink-0"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        <span>View / Download</span>
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={getSafeFileUrl(selectedLead.completionProof)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>View Full</span>
+                        </a>
+                        <a
+                          href={`${getSafeFileUrl(selectedLead.completionProof)}?download=true`}
+                          download
+                          className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span>Download</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}
