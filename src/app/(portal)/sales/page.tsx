@@ -30,6 +30,7 @@ import { useStore } from "@/store/useStore";
 import { getSafeFileUrl } from "@/lib/file-helper";
 import * as XLSX from "xlsx";
 import { useSearchParams } from "next/navigation";
+import AdminFileManager from "@/components/AdminFileManager";
 
 
 export default function SalesPage() {
@@ -231,7 +232,7 @@ export default function SalesPage() {
   };
 
   // --- 2. PRICING MODULE FUNCTIONS ---
-  const categories = ["All", "Solar Panels", "Inverters", "Batteries", "Cables", "Accessories"];
+  const categories = ["All", "Solar Panels", "Inverters", "Batteries", "Stand & Structure", "Cables", "Accessories"];
   
   const getFilteredProducts = () => {
     const source = editMode ? editableProducts : (data?.products || []);
@@ -452,116 +453,15 @@ export default function SalesPage() {
 
       {/* --- TAB CONTENT: TRAINING CENTER --- */}
       {activeTab === "training" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            {/* Breadcrumbs / Folder Nav */}
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
-              <button
-                onClick={() => setCurrentFolderId(null)}
-                className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-              >
-                Root
-              </button>
-              {getTrainingBreadcrumbs().map((crumb) => (
-                <div key={crumb.id} className="flex items-center gap-2">
-                  <ChevronRight className="h-3 w-3 text-zinc-600" />
-                  <button
-                    onClick={() => setCurrentFolderId(crumb.id)}
-                    className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-                  >
-                    {crumb.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Folder Search */}
-            <div className="relative w-full sm:w-64">
-              <input
-                type="text"
-                placeholder="Search training documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full glass-input rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder-zinc-500 focus:outline-none"
-              />
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-            </div>
-          </div>
-
-          {/* Training Files List / Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {currentFolderId !== null && !searchQuery && (
-              <div
-                onClick={() => {
-                  const currentCrumb = data?.trainingFiles?.find((f: any) => f.id === currentFolderId);
-                  setCurrentFolderId(currentCrumb ? currentCrumb.parentId : null);
-                }}
-                className="glass-card p-4 rounded-xl border border-zinc-800 hover:bg-zinc-800/40 cursor-pointer flex items-center gap-3 transition"
-              >
-                <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
-                  <ArrowLeft className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-300">Go Back</h4>
-                  <p className="text-[10px] text-zinc-500">Parent Directory</p>
-                </div>
-              </div>
-            )}
-
-            {getTrainingItems().length > 0 ? (
-              getTrainingItems().map((file: any) => {
-                const isFolder = file.isFolder;
-                const Icon = isFolder ? Folder : file.fileExtension === "link" ? Video : FileText;
-                
-                return (
-                  <div
-                    key={file.id}
-                    onClick={() => handleTrainingFileClick(file)}
-                    className="glass-card p-4 rounded-xl border border-zinc-800 hover:border-amber-500/30 hover:bg-zinc-900/40 cursor-pointer flex flex-col justify-between transition group h-36"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className={`p-2.5 rounded-xl ${
-                        isFolder
-                          ? "bg-amber-500/10 text-amber-500"
-                          : file.fileExtension === "link"
-                          ? "bg-violet-500/10 text-violet-400"
-                          : "bg-blue-500/10 text-blue-400"
-                      }`}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      {!isFolder && file.fileUrl && (
-                        <a
-                          href={getSafeFileUrl(file.fileUrl)}
-                          download
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded-lg text-zinc-500 hover:text-white"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="text-xs font-bold text-zinc-200 line-clamp-2 group-hover:text-amber-400 transition">
-                        {file.name}
-                      </h4>
-                      <p className="text-[10px] text-zinc-500 mt-1 uppercase font-semibold">
-                        {isFolder ? "Folder" : file.fileExtension === "link" ? "Video link" : file.fileExtension || "Document"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center text-zinc-500 font-medium">
-                No files found in this category.
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminFileManager
+          department="Sales"
+          docType="Training"
+          title="Sales SOPs & Training Library"
+          description="Manage, upload, edit and organize sales SOPs, Word documents, onboarding guides, and training files"
+          onRefreshParent={refreshData}
+        />
       )}
 
-      {/* --- TAB CONTENT: PRODUCT PRICE DATABASE --- */}
       {/* --- TAB CONTENT: PRODUCT PRICE DATABASE --- */}
       {activeTab === "pricing" && (
         <div className="space-y-4">
@@ -745,9 +645,10 @@ export default function SalesPage() {
                                     <option value="Solar Panels">Solar Panels</option>
                                     <option value="Inverters">Inverters</option>
                                     <option value="Batteries">Batteries</option>
+                                    <option value="Stand & Structure">Stand & Structure</option>
+                                    <option value="Structures">Structures</option>
                                     <option value="Cables">Cables</option>
                                     <option value="Accessories">Accessories</option>
-                                    <option value="Structures">Structures</option>
                                     <option value="Installation Materials">Installation Materials</option>
                                     <option value="Other">Other</option>
                                   </select>
@@ -821,215 +722,24 @@ export default function SalesPage() {
 
       {/* --- TAB CONTENT: ADVERTISEMENT LIBRARY --- */}
       {activeTab === "ads" && (
-        <div className="space-y-6">
-          {/* Top Category Selectors */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            {/* Social/Company Sub-channels */}
-            <div className="flex flex-wrap gap-1.5 bg-zinc-900/60 p-1 border border-zinc-800 rounded-xl w-full sm:w-fit">
-              {adChannels.map((channel) => (
-                <button
-                  key={channel}
-                  onClick={() => setSelectedAdChannel(channel)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wide uppercase transition cursor-pointer ${
-                    selectedAdChannel === channel ? "bg-amber-500 text-zinc-950" : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {channel}
-                </button>
-              ))}
-            </div>
-
-            {/* Search Input */}
-            <div className="relative w-full sm:w-64">
-              <input
-                type="text"
-                placeholder="Search creatives..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full glass-input rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder-zinc-500 focus:outline-none"
-              />
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 border-b border-zinc-800 pb-2">
-            {adAssets.map((asset) => (
-              <button
-                key={asset}
-                onClick={() => setSelectedAdAsset(asset)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                  selectedAdAsset === asset ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                {asset}
-              </button>
-            ))}
-          </div>
-
-          {/* Advertisement Assets Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {getFilteredAds().length > 0 ? (
-              getFilteredAds().map((file: any) => {
-                const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(file.fileExtension?.toLowerCase() || "");
-                return (
-                  <div
-                    key={file.id}
-                    className="glass-card rounded-xl border border-zinc-800 overflow-hidden flex flex-col justify-between hover:border-amber-500/20 group transition"
-                  >
-                    {/* Media Preview Box */}
-                    <div className="h-44 bg-zinc-900/60 flex items-center justify-center relative overflow-hidden group border-b border-zinc-800/60">
-                      {isImage ? (
-                        <img
-                          src={getSafeFileUrl(file.fileUrl)}
-                          alt={file.name}
-                          className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
-                        />
-                      ) : (
-                        <ImageIcon className="h-10 w-10 text-zinc-700" />
-                      )}
-                      
-                      {/* Action overlays on hover */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition">
-                        {isImage && (
-                          <button
-                            onClick={() => setImageModalUrl(getSafeFileUrl(file.fileUrl))}
-                            className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        )}
-                        <a
-                          href={getSafeFileUrl(file.fileUrl)}
-                          download
-                          className="p-2 rounded-full bg-amber-500 hover:bg-amber-400 text-zinc-950"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </div>
-                    </div>
-
-                    <div className="p-4 space-y-1">
-                      <h4 className="text-xs font-bold text-zinc-200 line-clamp-1 group-hover:text-amber-400 transition">
-                        {file.name}
-                      </h4>
-                      <p className="text-[9px] text-zinc-500 font-semibold uppercase">
-                        {file.fileExtension || "File"} • {(file.fileSize ? `${(file.fileSize/1024).toFixed(1)} KB` : "N/A")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center text-zinc-500 font-medium">
-                No marketing creatives matched your filters.
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminFileManager
+          department="Sales"
+          docType="Advertisements"
+          title="Advertising & Branding Library"
+          description="Manage, upload, edit and organize marketing banners, flyer designs, brochures, and brand media"
+          onRefreshParent={refreshData}
+        />
       )}
 
-      {/* --- TAB CONTENT: QUOTATIONS DIRECTORY --- */}
+      {/* --- TAB CONTENT: QUOTATIONS --- */}
       {activeTab === "quotations" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
-              <button
-                onClick={() => setCurrentFolderId(null)}
-                className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-              >
-                Quotations Root
-              </button>
-              {getQuotationBreadcrumbs().map((crumb) => (
-                <div key={crumb.id} className="flex items-center gap-2">
-                  <ChevronRight className="h-3 w-3 text-zinc-600" />
-                  <button
-                    onClick={() => setCurrentFolderId(crumb.id)}
-                    className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-                  >
-                    {crumb.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <input
-                type="text"
-                placeholder="Search quotations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full glass-input rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder-zinc-500 focus:outline-none"
-              />
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-            </div>
-          </div>
-
-          {/* Folders grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {currentFolderId !== null && !searchQuery && (
-              <div
-                onClick={() => {
-                  const currentCrumb = data?.quotationFiles?.find((f: any) => f.id === currentFolderId);
-                  setCurrentFolderId(currentCrumb ? currentCrumb.parentId : null);
-                }}
-                className="glass-card p-4 rounded-xl border border-zinc-800 hover:bg-zinc-800/40 cursor-pointer flex items-center gap-3 transition"
-              >
-                <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
-                  <ArrowLeft className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-300">Go Back</h4>
-                  <p className="text-[10px] text-zinc-500">Parent Directory</p>
-                </div>
-              </div>
-            )}
-
-            {getQuotationItems().length > 0 ? (
-              getQuotationItems().map((file: any) => {
-                const isFolder = file.isFolder;
-                const Icon = isFolder ? Folder : FileText;
-                return (
-                  <div
-                    key={file.id}
-                    onClick={() => handleQuotationFileClick(file)}
-                    className="glass-card p-4 rounded-xl border border-zinc-800 hover:border-amber-500/30 hover:bg-zinc-900/40 cursor-pointer flex flex-col justify-between transition group h-36"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className={`p-2.5 rounded-xl ${
-                        isFolder ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-400"
-                      }`}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      {!isFolder && file.fileUrl && (
-                        <a
-                          href={getSafeFileUrl(file.fileUrl)}
-                          download
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded-lg text-zinc-500 hover:text-white"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="text-xs font-bold text-zinc-200 line-clamp-2 group-hover:text-amber-400 transition">
-                        {file.name}
-                      </h4>
-                      <p className="text-[10px] text-zinc-500 mt-1 uppercase font-semibold">
-                        {isFolder ? "Folder" : file.fileExtension || "Document"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center text-zinc-500 font-medium">
-                No quotation templates found.
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminFileManager
+          department="Sales"
+          docType="Quotations"
+          title="Sales Quotations & Proposal Templates"
+          description="Manage, upload, edit and organize official quotation templates, PDF proposals, and client estimates"
+          onRefreshParent={refreshData}
+        />
       )}
 
       {/* --- EMBEDDED MODALS --- */}

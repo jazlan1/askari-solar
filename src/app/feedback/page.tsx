@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Sun,
   User,
@@ -39,6 +39,7 @@ type FormState = {
   photoUrl: string;
   warrantyReceived: string; // "Yes" / "No" / "Not Applicable"
   warrantyCardUrl: string;
+  fieldStaffId: number; // which field staff member handled the work
 };
 
 const INITIAL: FormState = {
@@ -57,6 +58,7 @@ const INITIAL: FormState = {
   photoUrl: "",
   warrantyReceived: "",
   warrantyCardUrl: "",
+  fieldStaffId: 0,
 };
 
 export default function FeedbackPage() {
@@ -64,6 +66,17 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldStaffList, setFieldStaffList] = useState<any[]>([]);
+
+  // Load field staff for dropdown
+  useEffect(() => {
+    fetch("/api/users/fieldstaff")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setFieldStaffList(d.fieldStaff || []);
+      })
+      .catch(() => {/* non-fatal */});
+  }, []);
 
   function set<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -302,6 +315,25 @@ export default function FeedbackPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Field Staff Dropdown */}
+                {fieldStaffList.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-zinc-400 mb-2">
+                      Field Staff Member Who Served You <span className="text-zinc-600">(optional)</span>
+                    </label>
+                    <select
+                      value={form.fieldStaffId || ""}
+                      onChange={(e) => set("fieldStaffId", e.target.value ? parseInt(e.target.value) : 0)}
+                      className="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-white bg-zinc-800 focus:outline-none focus:border-amber-500/50"
+                    >
+                      <option value="">Select team member (if known)...</option>
+                      {fieldStaffList.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 

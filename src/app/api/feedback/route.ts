@@ -16,15 +16,18 @@ export async function GET(req: NextRequest) {
 
     const feedbacks = await prisma.feedback.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        fieldStaff: { select: { id: true, name: true, role: true, department: true } },
+      },
     });
 
     return NextResponse.json({
       success: true,
       feedbacks,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Feedback GET error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
   }
 }
 
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
       photoUrl,
       warrantyReceived,
       warrantyCardUrl,
+      fieldStaffId, // new: which field staff member handled the work
     } = body;
 
     // Validate required fields
@@ -108,6 +112,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Resolve fieldStaffId
+    let resolvedFieldStaffId: number | null = null;
+    if (fieldStaffId) {
+      const parsed = parseInt(fieldStaffId.toString());
+      if (!isNaN(parsed) && parsed > 0) {
+        resolvedFieldStaffId = parsed;
+      }
+    }
+
     // Create feedback record
     const feedback = await prisma.feedback.create({
       data: {
@@ -126,6 +139,7 @@ export async function POST(req: NextRequest) {
         photoUrl: photoUrl || null,
         warrantyReceived,
         warrantyCardUrl: warrantyReceived === "Yes" ? warrantyCardUrl || null : null,
+        fieldStaffId: resolvedFieldStaffId,
       },
     });
 
@@ -133,8 +147,8 @@ export async function POST(req: NextRequest) {
       { success: true, id: feedback.id },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Feedback POST error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
   }
 }

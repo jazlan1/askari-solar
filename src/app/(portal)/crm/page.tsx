@@ -24,7 +24,10 @@ import {
   Activity,
   Layers,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Download,
+  Paperclip
 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 
@@ -1672,6 +1675,29 @@ export default function CRMPage() {
                   <span className="text-zinc-500 block">Status History / Notes</span>
                   <p className="text-zinc-400 mt-1">{selectedLead.notes || "No notes logged."}</p>
                 </div>
+
+                {selectedLead.completionProof && (
+                  <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800 space-y-2">
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block flex items-center gap-1">
+                      <Paperclip className="h-3 w-3" />
+                      <span>Completion Proof / Attached Document</span>
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-zinc-300 text-xs truncate max-w-[200px]" title={selectedLead.completionProof}>
+                        {selectedLead.completionProof.split("/").pop()}
+                      </span>
+                      <a
+                        href={selectedLead.completionProof}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition shrink-0"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        <span>View / Download</span>
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

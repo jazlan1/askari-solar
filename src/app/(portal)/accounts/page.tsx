@@ -28,6 +28,7 @@ import {
   Loader2,
   FileCheck,
 } from "lucide-react";
+import AdminFileManager from "@/components/AdminFileManager";
 
 export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState<"training" | "invoicing" | "fastaccounts">("training");
@@ -260,126 +261,13 @@ export default function AccountsPage() {
 
       {/* --- TAB CONTENT: ACCOUNTS TRAINING --- */}
       {activeTab === "training" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
-              <button
-                onClick={() => setCurrentFolderId(null)}
-                className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-              >
-                Accounts Library
-              </button>
-              {getTrainingBreadcrumbs().map((crumb) => (
-                <div key={crumb.id} className="flex items-center gap-2">
-                  <ChevronRight className="h-3 w-3 text-zinc-600" />
-                  <button
-                    onClick={() => setCurrentFolderId(crumb.id)}
-                    className="text-zinc-200 hover:text-amber-500 transition cursor-pointer"
-                  >
-                    {crumb.name}
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              {isAdminOrAccountant && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-xs font-bold transition cursor-pointer"
-                >
-                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                  <span>Upload Files</span>
-                </button>
-              )}
-
-              <div className="relative w-full sm:w-64">
-                <input
-                  type="text"
-                  placeholder="Search training docs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full glass-input rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder-zinc-500 focus:outline-none"
-                />
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-              </div>
-            </div>
-          </div>
-
-          {/* Files grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {currentFolderId !== null && !searchQuery && (
-              <div
-                onClick={() => {
-                  const currentCrumb = data?.trainingFiles?.find((f: any) => f.id === currentFolderId);
-                  setCurrentFolderId(currentCrumb ? currentCrumb.parentId : null);
-                }}
-                className="glass-card p-4 rounded-xl border border-zinc-800 hover:bg-zinc-800/40 cursor-pointer flex items-center gap-3 transition"
-              >
-                <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
-                  <ArrowLeft className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-300">Go Back</h4>
-                  <p className="text-[10px] text-zinc-500">Parent Folder</p>
-                </div>
-              </div>
-            )}
-
-            {getTrainingItems().length > 0 ? (
-              getTrainingItems().map((file: any) => {
-                const isFolder = file.isFolder;
-                const Icon = isFolder ? Folder : getFileIcon(file.fileExtension);
-                return (
-                  <div
-                    key={file.id}
-                    onClick={() => handleFileClick(file)}
-                    className="glass-card p-4 rounded-xl border border-zinc-800 hover:border-amber-500/30 hover:bg-zinc-900/40 cursor-pointer flex flex-col justify-between transition group h-36"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className={`p-2.5 rounded-xl ${
-                        isFolder ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-400"
-                      }`}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      {!isFolder && file.fileUrl && (
-                        <a
-                          href={getSafeFileUrl(file.fileUrl)}
-                          download
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded-lg text-zinc-500 hover:text-white"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="text-xs font-bold text-zinc-200 line-clamp-2 group-hover:text-amber-400 transition">
-                        {file.name}
-                      </h4>
-                      <p className="text-[10px] text-zinc-500 mt-1 uppercase font-semibold">
-                        {isFolder ? "Folder" : file.fileExtension || "Document"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full py-12 text-center text-zinc-500 font-medium text-xs">
-                No accounts documents found in this directory.
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminFileManager
+          department="Accounts"
+          docType="Training"
+          title="Accounts & Finance SOPs & Documents"
+          description="Manage, upload, edit and organize accounts SOPs, financial spreadsheets, voucher templates, and tax guides"
+          onRefreshParent={refreshData}
+        />
       )}
 
       {/* --- TAB CONTENT: COMPLETED WORK & INVOICING --- */}

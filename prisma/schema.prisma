@@ -26,6 +26,7 @@ model User {
   assignedComplaints Complaint[]        @relation("AssignedComplaints")
   complaintNotes     ComplaintNote[]    @relation("ComplaintNotes")
   complaintHistories ComplaintHistory[] @relation("ComplaintHistories")
+  receivedFeedback   Feedback[]         @relation("FieldStaffFeedback")
   documents          String?
   secondaryPhone     String?
   additionalPhone    String?
@@ -300,6 +301,8 @@ model Feedback {
   photoUrl            String?  // customer photo upload path
   warrantyReceived    String   // 'Yes' / 'No' / 'Not Applicable'
   warrantyCardUrl     String?  // warranty card upload path
+  fieldStaffId        Int?     // which field staff member handled the work
+  fieldStaff          User?    @relation("FieldStaffFeedback", fields: [fieldStaffId], references: [id])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

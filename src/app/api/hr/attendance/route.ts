@@ -42,8 +42,11 @@ export async function GET(req: NextRequest) {
         where: { date: targetDate },
       });
 
-      // Keep all users as requested
-      const filteredUsers = allUsers;
+      // Exclude Admin and Super Admin from attendance roster
+      const filteredUsers = allUsers.filter((u) => {
+        const roles = (u.role || "").split(",").map((r) => r.trim());
+        return !roles.some((r) => ["Admin", "Super Admin"].includes(r));
+      });
 
       const dailyRecords = filteredUsers.map((u) => {
         const log = logsForDate.find((l) => l.userId === u.id);
@@ -72,7 +75,11 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { name: "asc" },
       });
-      allEmployees = allEmployeesList;
+      // Exclude Admin and Super Admin from the employee filter dropdown
+      allEmployees = allEmployeesList.filter((u) => {
+        const roles = (u.role || "").split(",").map((r) => r.trim());
+        return !roles.some((r) => ["Admin", "Super Admin"].includes(r));
+      });
     }
 
     // 3. Timesheet Logs (with filters)

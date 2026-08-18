@@ -52,24 +52,34 @@ export async function GET(req: NextRequest) {
         where: { assignedToId: u.id },
       });
 
-      // 4. Fetch Feedback by matching phone numbers
-      const taskPhones = tasks
-        .map((t) => t.clientNumber?.replace(/\s+/g, "").trim())
-        .filter(Boolean) as string[];
-      const complaintPhones = complaints
-        .map((c) => c.phone?.replace(/\s+/g, "").trim())
-        .filter(Boolean) as string[];
-
-      const combinedPhones = Array.from(new Set([...taskPhones, ...complaintPhones]));
-
+      // 4. Fetch Feedback directly linked to this user as field staff
       let feedbacks: any[] = [];
-      if (combinedPhones.length > 0) {
-        const allFeedbacks = await prisma.feedback.findMany({});
-        feedbacks = allFeedbacks.filter((fb) => {
-          const cleanFbPhone = fb.contactNumber?.replace(/\s+/g, "").trim();
-          return cleanFbPhone && combinedPhones.includes(cleanFbPhone);
-        });
+      // Primary: use direct fieldStaffId relation (new, reliable)
+      const directFeedbacks = await prisma.feedback.findMany({
+        where: { fieldStaffId: u.id },
+      });
+      feedbacks = directFeedbacks;
+
+      // Fallback: also check by phone number match for older feedback records without fieldStaffId
+      if (feedbacks.length === 0) {
+        const taskPhones = tasks
+          .map((t) => t.clientNumber?.replace(/\s+/g, "").trim())
+          .filter(Boolean) as string[];
+        const complaintPhones = complaints
+          .map((c) => c.phone?.replace(/\s+/g, "").trim())
+          .filter(Boolean) as string[];
+        const combinedPhones = Array.from(new Set([...taskPhones, ...complaintPhones]));
+        if (combinedPhones.length > 0) {
+          const allFeedbacks = await prisma.feedback.findMany({
+            where: { fieldStaffId: null }, // only unlinked records
+          });
+          feedbacks = allFeedbacks.filter((fb) => {
+            const cleanFbPhone = fb.contactNumber?.replace(/\s+/g, "").trim();
+            return cleanFbPhone && combinedPhones.includes(cleanFbPhone);
+          });
+        }
       }
+
 
       // 5. Fetch CRM Leads for Sales & Marketing / Office
       const assignedLeads = await prisma.lead.findMany({

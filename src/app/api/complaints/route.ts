@@ -2,27 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/auth";
 
+// Combined list: matches both frontend labels and any legacy production data
 const COMPLAINT_CATEGORIES = [
   "Inverter Problem",
-  "Inverter Issue",
   "Solar Panel Problem",
-  "Solar Panels Not Producing",
   "Battery Problem",
-  "Battery Issue",
   "Monitoring/App Problem",
-  "Monitoring/App Issue",
   "Wiring Problem",
   "Installation Problem",
-  "Installation Issue",
   "Netmetering/Net billing problem",
-  "Net Metering Issue",
   "IESCO Bill Issue",
-  "Billing Issue",
   "Service & Maintenance",
+  "Other",
+  // Legacy aliases kept for backward compatibility with existing production records
+  "Inverter Issue",
+  "Solar Panels Not Producing",
+  "Battery Issue",
+  "Monitoring/App Issue",
+  "Installation Issue",
+  "Net Metering Issue",
+  "Billing Issue",
   "Maintenance Request",
   "Warranty Claim",
   "Service Request",
-  "Other",
 ];
 
 // Generate a unique complaint ID like COMPLAINT/YYYY/MM/001
@@ -123,9 +125,9 @@ export async function GET(req: NextRequest) {
       pages: Math.ceil(total / limit),
       stats: { new: newCount, inProgress: inProgressCount, resolved: resolvedCount, urgent: urgentCount },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Complaints GET error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
   }
 }
 
@@ -157,7 +159,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!COMPLAINT_CATEGORIES.includes(category)) {
-      return NextResponse.json({ error: "Invalid complaint category." }, { status: 400 });
+      return NextResponse.json(
+        { error: `Invalid complaint category: "${category}". Please select a valid category from the list.` },
+        { status: 400 }
+      );
     }
 
     const complaintId = await generateComplaintId();
@@ -184,18 +189,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Create initial history record (use undefined not null for optional String? in Prisma)
     await prisma.complaintHistory.create({
       data: {
         complaintId: complaint.id,
         field: "status",
-        oldValue: null,
         newValue: "New",
       },
     });
 
     return NextResponse.json({ success: true, complaintId, id: complaint.id }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Complaints POST error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
   }
 }

@@ -156,8 +156,8 @@ export default function TasksPage() {
           dueDate,
           assignedToIds,
           charges,
-          clientName: "",
-          clientNumber: "",
+          clientName: clientName,
+          clientNumber: clientNumber,
           clientLocation,
           attachmentUrl,
         }),
@@ -222,8 +222,8 @@ export default function TasksPage() {
           status: editTaskStatus,
           assignedToIds: editTaskAssignedToIds,
           charges: editTaskCharges,
-          clientName: "",
-          clientNumber: "",
+          clientName: editTaskClientName,
+          clientNumber: editTaskClientNumber,
           clientLocation: editTaskClientLocation,
         }),
       });
@@ -494,6 +494,7 @@ export default function TasksPage() {
                     >
                       <option value="Quotation">Quotation</option>
                       <option value="Invoice">Invoice</option>
+                      <option value="N/A">N/A — Not Applicable</option>
                       <option value="1000">1000</option>
                       <option value="1500">1500</option>
                       <option value="2000">2000</option>
@@ -524,6 +525,29 @@ export default function TasksPage() {
                     className="w-full block glass-input rounded-xl px-3 py-2 mt-1.5 text-white bg-zinc-900 focus:outline-none"
                     placeholder="Describe specific survey details..."
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase">Client Name</label>
+                    <input
+                      type="text"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      className="w-full block glass-input rounded-xl px-3 py-2 mt-1.5 text-white bg-zinc-900 focus:outline-none"
+                      placeholder="Client full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase">Client Phone</label>
+                    <input
+                      type="text"
+                      value={clientNumber}
+                      onChange={(e) => setClientNumber(e.target.value)}
+                      className="w-full block glass-input rounded-xl px-3 py-2 mt-1.5 text-white bg-zinc-900 focus:outline-none"
+                      placeholder="0300-1234567"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1226,12 +1250,36 @@ export default function TasksPage() {
                   >
                     <option value="Quotation">Quotation</option>
                     <option value="Invoice">Invoice</option>
+                    <option value="N/A">N/A — Not Applicable</option>
                     <option value="1000">1000</option>
                     <option value="1500">1500</option>
                     <option value="2000">2000</option>
                     <option value="3000">3000</option>
                     <option value="5000">5000</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-550 uppercase">Client Name</label>
+                  <input
+                    type="text"
+                    value={editTaskClientName}
+                    onChange={(e) => setEditTaskClientName(e.target.value)}
+                    className="w-full block glass-input rounded-xl px-3 py-2 mt-1 text-white bg-zinc-950 focus:outline-none"
+                    placeholder="Client full name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-550 uppercase">Client Phone</label>
+                  <input
+                    type="text"
+                    value={editTaskClientNumber}
+                    onChange={(e) => setEditTaskClientNumber(e.target.value)}
+                    className="w-full block glass-input rounded-xl px-3 py-2 mt-1 text-white bg-zinc-950 focus:outline-none"
+                    placeholder="0300-1234567"
+                  />
                 </div>
               </div>
 
