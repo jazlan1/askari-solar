@@ -177,13 +177,21 @@ try {
     console.error('⚠️ Failed to sync to sibling version folders:', syncErr.message);
   }
 
-  // Trigger Phusion Passenger reload via tmp/restart.txt in the application root directory
+  // Trigger Phusion Passenger reload via tmp/restart.txt in all possible application root directories
   const restartDirs = [
     path.join(__dirname, '../../tmp'),
     path.join(__dirname, '../../../tmp'),
     path.join(__dirname, '../../../../tmp'),
     path.join(__dirname, '../../../../../tmp'),
-    path.join(__dirname, '../../../../../../tmp')
+    path.join(__dirname, '../../../../../../tmp'),
+    '/home/u504701759/domains/solarkidunya.com/portal/hbuilds/current/nodejs/tmp',
+    '/home/u504701759/domains/solarkidunya.com/portal/hbuilds/current/tmp',
+    '/home/u504701759/domains/solarkidunya.com/portal/tmp',
+    '/home/u504701759/domains/solarkidunya.com/public_html/portal/tmp',
+    '/home/u504701759/domains/solarkidunya.com/hbuilds/current/nodejs/tmp',
+    '/home/u504701759/domains/solarkidunya.com/hbuilds/current/tmp',
+    '/home/u504701759/domains/solarkidunya.com/tmp',
+    '/home/u504701759/domains/solarkidunya.com/public_html/tmp',
   ];
   for (const tmpDir of restartDirs) {
     try {
@@ -191,7 +199,7 @@ try {
       fs.writeFileSync(path.join(tmpDir, 'restart.txt'), String(Date.now()));
       console.log(`🔄 Phusion Passenger reload triggered via: ${tmpDir}/restart.txt`);
     } catch (tmpErr) {
-      console.error(`⚠️ Failed to create restart.txt in ${tmpDir}:`, tmpErr.message);
+      // Ignore if directory cannot be written
     }
   }
 
