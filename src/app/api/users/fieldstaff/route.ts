@@ -10,13 +10,12 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         role: true,
-        department: true,
       },
       orderBy: { name: "asc" },
     });
 
-    // Exclude Admin and Super Admin, include all technicians, TAs, field staff, and engineers
-    const fieldStaff = allUsers.filter((u) => {
+    // Exclude Admin and Super Admin, include all technicians, TAs, field staff, etc.
+    const fieldStaff = (allUsers || []).filter((u) => {
       const roles = (u.role || "").split(",").map((r) => r.trim());
       return !roles.some((r) => ["Admin", "Super Admin"].includes(r));
     });
@@ -25,8 +24,8 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Field staff list error:", error);
     return NextResponse.json(
-      { error: error?.message || "Internal server error" },
-      { status: 500 }
+      { success: false, fieldStaff: [], error: error?.message || "Error fetching field staff" },
+      { status: 200 }
     );
   }
 }
