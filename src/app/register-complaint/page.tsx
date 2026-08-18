@@ -33,6 +33,8 @@ const CATEGORIES = [
   "Other",
 ];
 
+const CONTACT_METHODS = ["Phone", "WhatsApp"];
+
 const CONTACT_TIMES = [
   "Morning (9am–12pm)",
   "Afternoon (12pm–3pm)",
@@ -66,7 +68,7 @@ const INITIAL: FormState = {
   category: "",
   subject: "",
   description: "",
-  contactMethod: "Email",
+  contactMethod: "Phone",
   contactTime: "",
   screenshotUrl: "",
   attachmentUrl: "",
@@ -124,8 +126,8 @@ export default function ComplaintsPage() {
     e.preventDefault();
     setError(null);
 
-    if (!form.fullName.trim() || !form.phone.trim() || !form.email.trim() || !form.address.trim() || !form.category || !form.description.trim() || !form.installedBy) {
-      setError("Please fill in all required fields (Name, Phone, Email, Address, Category, Installer, Description).");
+    if (!form.fullName.trim() || !form.phone.trim() || !form.address.trim() || !form.category || !form.description.trim() || !form.installedBy || !form.contactMethod) {
+      setError("Please fill in all required fields (Name, Phone, Address, Category, Installer, Description, Contact Method).");
       return;
     }
 
@@ -134,7 +136,7 @@ export default function ComplaintsPage() {
       const payload = {
         ...form,
         subject: form.category,
-        contactMethod: "Email",
+        contactMethod: form.contactMethod,
       };
 
       const res = await fetch("/api/complaints", {
@@ -250,7 +252,7 @@ export default function ComplaintsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                  Email Address <span className="text-red-400">*</span>
+                  Email Address <span className="text-zinc-500">(optional)</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
@@ -259,7 +261,6 @@ export default function ComplaintsPage() {
                     placeholder="example@email.com"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
-                    required
                     className="w-full glass-input rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none"
                   />
                 </div>
@@ -348,12 +349,33 @@ export default function ComplaintsPage() {
             </div>
           </div>
 
-          {/* Section: Preferred Contact Time */}
+          {/* Section: Contact Preference */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-sm font-bold uppercase tracking-widest text-amber-400 mb-5 flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" /> Contact Preference (Email Only)
+              <MessageCircle className="h-4 w-4" /> Contact Preference
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
+                  Preferred Contact Method <span className="text-red-400">*</span>
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {CONTACT_METHODS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => set("contactMethod", m)}
+                      className={`px-4 py-2 rounded-lg text-xs font-semibold border transition ${
+                        form.contactMethod === m
+                          ? "bg-amber-500 border-amber-500 text-zinc-950 font-bold"
+                          : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-amber-500/50"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
                   Preferred Contact Time <span className="text-zinc-600">(optional)</span>
