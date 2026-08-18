@@ -33,7 +33,6 @@ const CATEGORIES = [
   "Other",
 ];
 
-const CONTACT_METHODS = ["Phone", "Email", "WhatsApp"];
 const CONTACT_TIMES = [
   "Morning (9am–12pm)",
   "Afternoon (12pm–3pm)",
@@ -67,7 +66,7 @@ const INITIAL: FormState = {
   category: "",
   subject: "",
   description: "",
-  contactMethod: "",
+  contactMethod: "Email",
   contactTime: "",
   screenshotUrl: "",
   attachmentUrl: "",
@@ -101,17 +100,21 @@ export default function ComplaintsPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("fileType", fileType);
-      const res = await fetch("/api/complaints/upload", { method: "POST", body: fd });
+      fd.append("type", fileType);
+
+      const res = await fetch("/api/complaints/upload", {
+        method: "POST",
+        body: fd,
+      });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.fileUrl) {
         set(field, data.fileUrl);
         setName(file.name);
       } else {
-        setError(data.error || "Upload failed.");
+        setError(data.error || "File upload failed.");
       }
     } catch {
-      setError("Upload failed. Please try again.");
+      setError("File upload failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -121,17 +124,23 @@ export default function ComplaintsPage() {
     e.preventDefault();
     setError(null);
 
-    if (!form.fullName.trim() || !form.phone.trim() || !form.address.trim() || !form.category || !form.subject.trim() || !form.description.trim() || !form.contactMethod || !form.installedBy) {
-      setError("Please fill in all required fields, including your Address.");
+    if (!form.fullName.trim() || !form.phone.trim() || !form.email.trim() || !form.address.trim() || !form.category || !form.description.trim() || !form.installedBy) {
+      setError("Please fill in all required fields (Name, Phone, Email, Address, Category, Installer, Description).");
       return;
     }
 
     setSubmitting(true);
     try {
+      const payload = {
+        ...form,
+        subject: form.category,
+        contactMethod: "Email",
+      };
+
       const res = await fetch("/api/complaints", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
@@ -169,7 +178,7 @@ export default function ComplaintsPage() {
           </div>
           <button
             onClick={() => setSuccessId(null)}
-            className="px-6 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm transition"
+            className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm transition"
           >
             Submit Another Complaint
           </button>
@@ -193,14 +202,15 @@ export default function ComplaintsPage() {
           </p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Section: Customer Information */}
+          {error && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Section: Customer Info */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-sm font-bold uppercase tracking-widest text-amber-400 mb-5 flex items-center gap-2">
               <User className="h-4 w-4" /> Customer Information
@@ -240,7 +250,7 @@ export default function ComplaintsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                  Email Address
+                  Email Address <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
@@ -249,6 +259,7 @@ export default function ComplaintsPage() {
                     placeholder="example@email.com"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
+                    required
                     className="w-full glass-input rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none"
                   />
                 </div>
@@ -320,22 +331,6 @@ export default function ComplaintsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                  Complaint Subject <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <FileText className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
-                  <input
-                    type="text"
-                    placeholder="Brief summary of the problem"
-                    value={form.subject}
-                    onChange={(e) => set("subject", e.target.value)}
-                    required
-                    className="w-full glass-input rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
                   Detailed Description <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -353,33 +348,12 @@ export default function ComplaintsPage() {
             </div>
           </div>
 
-          {/* Section: Contact Preference */}
+          {/* Section: Preferred Contact Time */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-sm font-bold uppercase tracking-widest text-amber-400 mb-5 flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" /> Contact Preference
+              <MessageCircle className="h-4 w-4" /> Contact Preference (Email Only)
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
-                  Preferred Contact Method <span className="text-red-400">*</span>
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {CONTACT_METHODS.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => set("contactMethod", m)}
-                      className={`px-4 py-2 rounded-lg text-xs font-semibold border transition ${
-                        form.contactMethod === m
-                          ? "bg-amber-500 border-amber-500 text-zinc-950"
-                          : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-amber-500/50"
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
                   Preferred Contact Time <span className="text-zinc-600">(optional)</span>
@@ -480,23 +454,16 @@ export default function ComplaintsPage() {
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="bg-red-950/30 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
           {/* Submit */}
           <button
             type="submit"
-            disabled={submitting || screenshotUploading || attachmentUploading}
+            disabled={submitting}
             className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-zinc-950 font-bold text-base transition flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Submitting...
+                Submitting Complaint...
               </>
             ) : (
               "Submit Complaint"

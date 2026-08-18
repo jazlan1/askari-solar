@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/auth";
 
-// Combined list: matches both frontend labels and any legacy production data
+// Allowed complaint categories — unified with frontend form options and legacy values
 const COMPLAINT_CATEGORIES = [
   "Inverter Problem",
   "Solar Panel Problem",
@@ -14,14 +14,16 @@ const COMPLAINT_CATEGORIES = [
   "IESCO Bill Issue",
   "Service & Maintenance",
   "Other",
-  // Legacy aliases kept for backward compatibility with existing production records
-  "Inverter Issue",
-  "Solar Panels Not Producing",
-  "Battery Issue",
-  "Monitoring/App Issue",
-  "Installation Issue",
-  "Net Metering Issue",
-  "Billing Issue",
+  // Legacy aliases
+  "Inverter",
+  "Solar Panels",
+  "Battery / Storage",
+  "Net Metering / Billing",
+  "Wiring & Electrical",
+  "Physical Damage",
+  "Performance / Low Generation",
+  "Monitoring System / App",
+  "Installation Quality",
   "Maintenance Request",
   "Warranty Claim",
   "Service Request",
@@ -33,17 +35,14 @@ async function generateComplaintId(): Promise<string> {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const prefix = `COMPLAINT/${year}/${month}/`;
+  
+  // Use order by ID descending without LIKE/startsWith to avoid MariaDB collation 1267 errors
   const latest = await prisma.complaint.findFirst({
-    where: { complaintId: { startsWith: prefix } },
     orderBy: { id: "desc" },
+    select: { id: true, complaintId: true },
   });
 
-  let nextNum = 1;
-  if (latest) {
-    const parts = latest.complaintId.split("/");
-    const lastNum = parseInt(parts[parts.length - 1] || "0");
-    if (!isNaN(lastNum)) nextNum = lastNum + 1;
-  }
+  const nextNum = (latest?.id || 0) + 1;
   return `${prefix}${String(nextNum).padStart(3, "0")}`;
 }
 
@@ -151,9 +150,9 @@ export async function POST(req: NextRequest) {
       attachmentUrl,
     } = body;
 
-    if (!fullName || !fullName.trim() || !phone || !phone.trim() || !address || !address.trim() || !category || !subject || !description || !contactMethod) {
+    if (!fullName || !fullName.trim() || !phone || !phone.trim() || !address || !address.trim() || !category || !description) {
       return NextResponse.json(
-        { error: "Full name, phone, address, category, subject, description, and contact method are required." },
+        { error: "Full name, phone, address, category, and description are required." },
         { status: 400 }
       );
     }
@@ -166,6 +165,8 @@ export async function POST(req: NextRequest) {
     }
 
     const complaintId = await generateComplaintId();
+    const finalSubject = (subject && subject.trim()) ? subject.trim() : category;
+    const finalContactMethod = (contactMethod && contactMethod.trim()) ? contactMethod.trim() : "Email";
 
     const complaint = await prisma.complaint.create({
       data: {
@@ -177,9 +178,9 @@ export async function POST(req: NextRequest) {
         projectId: projectId?.trim() || null,
         installedBy: installedBy?.trim() || "Askari Solar Energy",
         category,
-        subject: subject.trim(),
+        subject: finalSubject,
         description: description.trim(),
-        contactMethod,
+        contactMethod: finalContactMethod,
         contactTime: contactTime?.trim() || null,
         screenshotUrl: screenshotUrl || null,
         attachmentUrl: attachmentUrl || null,
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create initial history record (use undefined not null for optional String? in Prisma)
+    // Create initial history record
     await prisma.complaintHistory.create({
       data: {
         complaintId: complaint.id,
